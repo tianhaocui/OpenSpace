@@ -1,10 +1,11 @@
 """OpenSpace MCP Server
 
 Exposes the following tools to MCP clients:
-  execute_task   — Delegate a task (auto-registers skills, auto-searches, auto-evolves)
-  search_skills  — Standalone search across local & cloud skills
-  fix_skill      — Manually fix a broken skill (FIX only; DERIVED/CAPTURED via execute_task)
-  upload_skill   — Upload a local skill to cloud (pre-saved metadata, bot decides visibility)
+  execute_task    — Delegate a task (auto-registers skills, auto-searches, auto-evolves)
+  search_skills   — Standalone search across local & cloud skills
+  fix_skill       — Manually fix a broken skill (FIX only; DERIVED/CAPTURED via execute_task)
+  upload_skill    — Upload a local skill to cloud (pre-saved metadata, bot decides visibility)
+  sync_skills_git — Bidirectional sync with Git repos via skillpull
 
 Usage:
     python -m openspace.mcp_server                     # auto (TTY -> SSE, MCP host -> stdio)
@@ -526,7 +527,7 @@ def _json_error(error: Any, **extra) -> str:
     return json.dumps({"error": str(error), **extra}, ensure_ascii=False)
 
 
-# MCP Tools (4 tools)
+# MCP Tools (5 tools)
 @mcp.tool()
 async def execute_task(
     task: str,
@@ -896,6 +897,79 @@ async def upload_skill(
     except Exception as e:
         logger.error(f"upload_skill failed: {e}", exc_info=True)
         return _json_error(e, status="error")
+
+
+@mcp.tool()
+async def sync_skills_git(
+    action: str,
+    repo: str | None = None,
+    skill_name: str | None = None,
+    skill_ids: list[str] | None = None,
+    force: bool = False,
+    project: str | None = None,
+    branch: str | None = None,
+) -> str:
+    """Sync skills with a Git repository via skillpull CLI.
+
+    Skills are pulled into / pushed from the host agent's skill directory
+    (read from ``OPENSPACE_HOST_SKILL_DIRS``).  No separate OpenSpace
+    skill directory is needed.
+
+    Two actions:
+      "pull"  — Pull skills from a Git repo and register them in OpenSpace
+                (quality tracking, intelligent selection, auto-evolution).
+      "push"  — Export evolved OpenSpace skills and push them to a Git repo
+                so team members can ``skillpull pull`` to get improvements.
+
+    Requires ``skillpull`` CLI installed (npm i -g skillpull).
+
+    Args:
+        action: "pull" or "push".
+        repo: Git repo URL, user/repo shortname, or @alias.
+              Defaults to skillpull's configured registry.
+        skill_name: Pull only this specific skill (pull action only).
+        skill_ids: Skill IDs to export and push (push action only).
+                   If omitted, pushes all evolved skills.
+        force: Overwrite existing skills on pull.
+        project: Project scope for skillpull (maps to .skillpullrc project).
+        branch: Git branch/tag to pull from.
+    """
+    try:
+        from openspace.cloud.cli.skillpull_sync import (
+            pull_and_register,
+            push_skills,
+        )
+
+        if action == "pull":
+            openspace = await _get_openspace()
+            registry = openspace._skill_registry
+            if not registry:
+                return _json_error("SkillRegistry not initialized")
+            store = _get_store()
+
+            result = await pull_and_register(
+                registry, store,
+                repo=repo, skill_name=skill_name, force=force,
+                branch=branch, project=project,
+            )
+            return _json_ok(result) if result.get("success") else _json_error(result.get("error", "pull failed"))
+
+        elif action == "push":
+            store = _get_store()
+            result = await push_skills(
+                repo=repo, store=store, skill_ids=skill_ids, project=project,
+            )
+            return _json_ok(result) if result.get("success") else _json_error(result.get("error", "push failed"))
+
+        else:
+            return _json_error(f"Unknown action: {action}. Use 'pull' or 'push'.")
+
+    except FileNotFoundError as e:
+        return _json_error(str(e))
+    except Exception as e:
+        logger.error(f"sync_skills_git failed: {e}", exc_info=True)
+        return _json_error(e, status="error")
+
 
 def run_mcp_server() -> None:
     """Console-script entry point for ``openspace-mcp``."""

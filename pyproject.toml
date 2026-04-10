@@ -82,6 +82,7 @@ openspace-download-skill = "openspace.cloud.cli.download_skill:main"
 openspace-upload-skill = "openspace.cloud.cli.upload_skill:main"
 openspace-dashboard = "openspace.dashboard_server:main"
 openspace-gateway = "openspace.communication.gateway:run_main"
+openspace-skillpull = "openspace.cloud.cli.skillpull_sync:main"
 
 [tool.setuptools]
 packages = {find = {where = ["."], include = ["openspace*"]}}
