@@ -15,7 +15,7 @@ from typing import Any, Dict, Optional
 
 logger = logging.getLogger("openspace.host_detection")
 
-_DEFAULT_MODEL = "openrouter/anthropic/claude-sonnet-4.5"
+_DEFAULT_MODEL = ""
 
 _PROVIDER_NATIVE_ENV_VARS: Dict[str, tuple[str, ...]] = {
     "openrouter": ("OPENROUTER_API_KEY", "OR_API_KEY"),
@@ -269,6 +269,11 @@ def build_llm_kwargs(model: str) -> tuple[str, Dict[str, Any]]:
     # Default model fallback
     if not resolved_model:
         resolved_model = _DEFAULT_MODEL
+    if not resolved_model:
+        logger.warning(
+            "No LLM model configured. Set OPENSPACE_LLM_MODEL, configure a host agent, "
+            "or set a provider-specific env var (e.g. OPENROUTER_API_KEY with model prefix)."
+        )
 
     # Ollama models must use the Ollama-native API base, even when unrelated
     # OPENSPACE_LLM_* env vars are present for a different provider.

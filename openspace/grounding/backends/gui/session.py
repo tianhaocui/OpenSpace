@@ -123,6 +123,7 @@ class GUISession(BaseSession):
                             pyautogui_size=pyautogui_size,
                             max_tokens=llm_config["max_tokens"],
                             only_n_most_recent_images=llm_config["only_n_most_recent_images"],
+                            base_url=llm_config.get("base_url"),
                         )
                         logger.info(
                             f"Initialized Anthropic LLM client - "

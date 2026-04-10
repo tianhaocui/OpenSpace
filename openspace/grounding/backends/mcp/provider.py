@@ -40,6 +40,7 @@ class MCPProvider(Provider[MCPSession]):
         
         # Extract MCP-specific configuration
         sandbox = get_config_value(config, "sandbox", False)
+        sandbox_backend = get_config_value(config, "sandbox_backend", "e2b")
         timeout = get_config_value(config, "timeout", 30)
         sse_read_timeout = get_config_value(config, "sse_read_timeout", 300.0)
         max_retries = get_config_value(config, "max_retries", 3)
@@ -49,11 +50,12 @@ class MCPProvider(Provider[MCPSession]):
         # Tool call retry settings (for transient errors like 400, 500, etc.)
         tool_call_max_retries = get_config_value(config, "tool_call_max_retries", 3)
         tool_call_retry_delay = get_config_value(config, "tool_call_retry_delay", 1.0)
-        
+
         # Create sandbox options if sandbox is enabled
         sandbox_options = None
         if sandbox:
             sandbox_options = {
+                "backend": sandbox_backend,
                 "timeout": timeout,
                 "sse_read_timeout": sse_read_timeout,
             }

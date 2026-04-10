@@ -41,7 +41,7 @@
       "script_path": null,
       "session_dir": null,
       "mode": "self-chat",
-      "auto_install_dependencies": true
+      "auto_install_dependencies": false
     }
   },
   "feishu": {
@@ -56,6 +56,7 @@
     "app_id": "cli_xxxxxxxxxxxxx",
     "app_secret": "xxxxxxxxxxxxx",
     "domain": "feishu",
+    "api_base_url": null,
     "connection_mode": "webhook",
     "verification_token": "",
     "encrypt_key": "",

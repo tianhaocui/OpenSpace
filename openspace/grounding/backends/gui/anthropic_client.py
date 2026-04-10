@@ -67,6 +67,7 @@ class AnthropicGUIClient:
         only_n_most_recent_images: int = 3,
         enable_prompt_caching: bool = True,
         backup_api_key: Optional[str] = None,
+        base_url: Optional[str] = None,
     ):
         """
         Initialize Anthropic GUI Client for Claude Sonnet 4.5.
@@ -85,6 +86,8 @@ class AnthropicGUIClient:
             only_n_most_recent_images: Number of recent screenshots to keep in history
             enable_prompt_caching: Whether to enable prompt caching for cost optimization
             backup_api_key: Backup API key (defaults to ANTHROPIC_API_KEY_BACKUP env var)
+            base_url: Custom API base URL for local proxy or private deployment
+                     (defaults to ANTHROPIC_BASE_URL env var, then Anthropic's default)
         """
         if not ANTHROPIC_AVAILABLE:
             raise RuntimeError("Anthropic SDK not installed. Install with: pip install anthropic")
@@ -102,6 +105,9 @@ class AnthropicGUIClient:
         
         # Backup API key for failover
         self.backup_api_key = backup_api_key or os.environ.get("ANTHROPIC_API_KEY_BACKUP")
+
+        # Custom base URL for local proxy / private deployment
+        self.base_url = base_url or os.environ.get("ANTHROPIC_BASE_URL")
         
         # Only support anthropic provider
         if provider != "anthropic":
@@ -141,7 +147,10 @@ class AnthropicGUIClient:
     def _create_client(self, api_key: Optional[str] = None):
         """Create Anthropic client (only supports anthropic provider)."""
         key = api_key or self.api_key
-        return Anthropic(api_key=key, max_retries=4)
+        kwargs = {"api_key": key, "max_retries": 4}
+        if self.base_url:
+            kwargs["base_url"] = self.base_url
+        return Anthropic(**kwargs)
     
     def _resize_screenshot(self, screenshot_bytes: bytes) -> bytes:
         """

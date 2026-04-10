@@ -83,31 +83,48 @@ async def create_connector_from_config(
 
     # Sandboxed connector
     elif is_stdio_server(server_config) and sandbox:
-        if not E2B_AVAILABLE:
-            raise ImportError(
-                "E2B sandbox support not available. Please install e2b-code-interpreter: "
-                "'pip install e2b-code-interpreter'"
+        sandbox_backend = (_sandbox_options or {}).get("backend", "e2b")
+
+        if sandbox_backend == "e2b":
+            if not E2B_AVAILABLE:
+                raise ImportError(
+                    "E2B sandbox support not available. Install e2b-code-interpreter "
+                    "('pip install e2b-code-interpreter') or set sandbox backend to "
+                    "'disabled' in config to skip sandboxing."
+                )
+
+            # Create E2B sandbox instance
+            _sandbox_options = sandbox_options or {}
+            e2b_sandbox = E2BSandbox(_sandbox_options)
+
+            # Extract timeout values from sandbox_options or use defaults
+            connector_timeout = _sandbox_options.get("timeout", timeout)
+            connector_sse_timeout = _sandbox_options.get("sse_read_timeout", sse_read_timeout)
+
+            # Create and return sandbox connector
+            return SandboxConnector(
+                sandbox=e2b_sandbox,
+                command=get_config_value(server_config, "command"),
+                args=get_config_value(server_config, "args"),
+                env=get_config_value(server_config, "env", None),
+                supergateway_command=_sandbox_options.get("supergateway_command", "npx -y supergateway"),
+                port=_sandbox_options.get("port", 3000),
+                timeout=connector_timeout,
+                sse_read_timeout=connector_sse_timeout,
             )
-        
-        # Create E2B sandbox instance
-        _sandbox_options = sandbox_options or {}
-        e2b_sandbox = E2BSandbox(_sandbox_options)
-        
-        # Extract timeout values from sandbox_options or use defaults
-        connector_timeout = _sandbox_options.get("timeout", timeout)
-        connector_sse_timeout = _sandbox_options.get("sse_read_timeout", sse_read_timeout)
-        
-        # Create and return sandbox connector
-        return SandboxConnector(
-            sandbox=e2b_sandbox,
-            command=get_config_value(server_config, "command"),
-            args=get_config_value(server_config, "args"),
-            env=get_config_value(server_config, "env", None),
-            supergateway_command=_sandbox_options.get("supergateway_command", "npx -y supergateway"),
-            port=_sandbox_options.get("port", 3000),
-            timeout=connector_timeout,
-            sse_read_timeout=connector_sse_timeout,
-        )
+        else:
+            # sandbox_backend == "disabled" or unsupported — fall back to stdio
+            from openspace.utils.logging import Logger as _Logger
+            _logger = _Logger.get_logger(__name__)
+            _logger.warning(
+                f"Sandbox backend '{sandbox_backend}' not supported or disabled. "
+                "Falling back to unsandboxed stdio connector."
+            )
+            return StdioConnector(
+                command=get_config_value(server_config, "command"),
+                args=get_config_value(server_config, "args"),
+                env=get_config_value(server_config, "env", None),
+            )
 
     # HTTP connector
     elif "url" in server_config:

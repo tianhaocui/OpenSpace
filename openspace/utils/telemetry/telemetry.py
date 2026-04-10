@@ -66,7 +66,8 @@ def get_cache_home() -> Path:
 class Telemetry:
     """
     Service for capturing anonymized telemetry data via PostHog and Scarf.
-    If the environment variable `MCP_USE_ANONYMIZED_TELEMETRY=false`, telemetry will be disabled.
+    Telemetry is disabled by default for private deployment.
+    Set ``MCP_USE_ANONYMIZED_TELEMETRY=true`` to opt in.
     """
 
     USER_ID_PATH = str(get_cache_home() / "mcp_use_3" / "telemetry_user_id")
@@ -79,14 +80,14 @@ class Telemetry:
     _curr_user_id = None
 
     def __init__(self):
-        telemetry_disabled = os.getenv("MCP_USE_ANONYMIZED_TELEMETRY", "true").lower() == "false"
+        telemetry_disabled = os.getenv("MCP_USE_ANONYMIZED_TELEMETRY", "false").lower() != "true"
 
         if telemetry_disabled:
             self._posthog_client = None
             self._scarf_client = None
             logger.debug("Telemetry disabled")
         else:
-            logger.info("Anonymized telemetry enabled. Set MCP_USE_ANONYMIZED_TELEMETRY=false to disable.")
+            logger.info("Anonymized telemetry enabled (MCP_USE_ANONYMIZED_TELEMETRY=true). Set to 'false' to disable.")
 
             # Initialize PostHog
             try:

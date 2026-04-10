@@ -287,9 +287,13 @@ class ToolRanker:
             return False
 
     def _init_local_embedding(self) -> bool:
-        """Initialize local fastembed model."""
+        """Initialize local fastembed model.
+
+        Supports offline mode via FASTEMBED_CACHE_PATH env var pointing to
+        a directory with pre-downloaded models.
+        """
         try:
-            from fastembed import TextEmbedding 
+            from fastembed import TextEmbedding
             logger.debug(f"fastembed imported successfully, loading model: {self._model_name}")
         except ImportError as e:
             logger.warning(
@@ -297,10 +301,15 @@ class ToolRanker:
                 f"Install with: pip install fastembed"
             )
             return False
-        
+
         try:
+            cache_dir = os.getenv("FASTEMBED_CACHE_PATH")
+            kwargs = {"model_name": self._model_name}
+            if cache_dir:
+                kwargs["cache_dir"] = cache_dir
+                logger.info(f"Using local fastembed cache: {cache_dir}")
             logger.info(f"Loading embedding model: {self._model_name}...")
-            self._embed_model = TextEmbedding(model_name=self._model_name)
+            self._embed_model = TextEmbedding(**kwargs)
             self._embedding_fn = lambda txts: list(self._embed_model.embed(txts))
             logger.info(f"Embedding model '{self._model_name}' loaded successfully")
             return True

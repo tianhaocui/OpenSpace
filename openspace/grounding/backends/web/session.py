@@ -42,8 +42,9 @@ class WebConnector(BaseConnector):
         
         if not self.api_key:
             raise RuntimeError(
-                "API key not provided. Set OPENROUTER_API_KEY environment variable "
-                "or provide deep_research_api_key in config."
+                "Deep research API key not provided. Set the appropriate API key "
+                "environment variable (default: OPENROUTER_API_KEY) or provide "
+                "deep_research_api_key in config."
             )
         
         self.client = AsyncOpenAI(
@@ -77,20 +78,35 @@ class WebConnector(BaseConnector):
 
 
 class WebSession(BaseSession):
-    
+
     backend_type = BackendType.WEB
-    
+
+    # Default base URL; overridden by config or DEEP_RESEARCH_BASE_URL env var
+    _DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
+
     def __init__(
         self,
         *,
         session_id: str,
         config: SessionConfig,
         deep_research_api_key: Optional[str] = None,
-        deep_research_base_url: str = "https://openrouter.ai/api/v1",
+        deep_research_base_url: Optional[str] = None,
+        deep_research_model: Optional[str] = None,
+        deep_research_api_key_env: str = "OPENROUTER_API_KEY",
         auto_connect: bool = True,
         auto_initialize: bool = True
     ):
-        api_key = deep_research_api_key or os.getenv("OPENROUTER_API_KEY")
+        # Resolve base URL: explicit param > env var > default
+        if not deep_research_base_url:
+            deep_research_base_url = os.getenv("DEEP_RESEARCH_BASE_URL", self._DEFAULT_BASE_URL)
+
+        # Resolve API key: explicit param > configured env var name
+        api_key = deep_research_api_key or os.getenv(deep_research_api_key_env)
+
+        # Store model for use by DeepResearchTool
+        self.deep_research_model = deep_research_model or os.getenv(
+            "DEEP_RESEARCH_MODEL", "perplexity/sonar-deep-research"
+        )
         connector = WebConnector(
             api_key=api_key or "",  # Empty string will raise an error when connect
             base_url=deep_research_base_url
@@ -204,7 +220,7 @@ USAGE GUIDELINES:
             logger.info(f"Start deep research: {query}")
             
             completion = await self._session.web_connector.client.chat.completions.create(
-                model="perplexity/sonar-deep-research",
+                model=self._session.deep_research_model,
                 messages=[{"role": "user", "content": query}]
             )
             

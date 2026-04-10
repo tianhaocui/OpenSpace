@@ -63,6 +63,7 @@ def build_llm_config(user_config: Optional[Dict[str, Any]] = None) -> Dict[str, 
         "max_tokens": user_config.get("max_tokens", 4096),
         "only_n_most_recent_images": user_config.get("only_n_most_recent_images", 3),
         "enable_prompt_caching": user_config.get("enable_prompt_caching", True),
+        "base_url": user_config.get("base_url", os.environ.get("ANTHROPIC_BASE_URL")),
     }
     
     # Optional: screen_size (will be auto-detected from screenshot later)

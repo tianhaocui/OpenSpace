@@ -66,7 +66,7 @@ class WhatsAppBridgeConfig(BaseModel):
     script_path: Optional[str] = None
     session_dir: Optional[str] = None
     mode: Literal["self-chat", "bot"] = "self-chat"
-    auto_install_dependencies: bool = True
+    auto_install_dependencies: bool = False
     token: Optional[str] = None
     enforce_loopback: bool = True
 
@@ -102,6 +102,11 @@ class FeishuConfig(ChannelAccessConfig):
     app_id: Optional[str] = None
     app_secret: Optional[str] = None
     domain: Literal["feishu", "lark"] = "feishu"
+    api_base_url: Optional[str] = Field(
+        None,
+        description="Custom API base URL for private Feishu deployment. "
+                    "Overrides the default SaaS domain (open.feishu.cn / open.larksuite.com)."
+    )
     connection_mode: Literal["webhook", "websocket"] = "webhook"
     verification_token: Optional[str] = None
     encrypt_key: Optional[str] = None
@@ -269,6 +274,7 @@ def _apply_env_overrides(config: CommunicationConfig) -> None:
     _maybe_set_str(config.feishu, "encrypt_key", os.getenv("FEISHU_ENCRYPT_KEY"))
     _maybe_set_str(config.feishu, "bot_open_id", os.getenv("FEISHU_BOT_OPEN_ID"))
     _maybe_set_str(config.feishu, "domain", os.getenv("FEISHU_DOMAIN"))
+    _maybe_set_str(config.feishu, "api_base_url", os.getenv("FEISHU_API_BASE_URL"))
     _maybe_set_str(config.feishu, "connection_mode", os.getenv("FEISHU_CONNECTION_MODE"))
     _maybe_set_str(config.feishu, "webhook_path", os.getenv("FEISHU_WEBHOOK_PATH"))
 

@@ -88,24 +88,37 @@ class ShellConfig(BackendConfig):
 class WebConfig(BackendConfig):
     """
     Web backend configuration - AI Deep Research
-    
+
     Attributes:
         enabled: Whether web backend is enabled
         timeout: Default timeout for web operations (seconds)
         max_retries: Maximum number of retry attempts
-    
-    Note:
-        All web-specific parameters (API key, base URL) are loaded from 
-        environment variables or use default values in WebSession:
-        - OPENROUTER_API_KEY: API key for deep research (required)
-        - Deep research base URL defaults to "https://openrouter.ai/api/v1"
+        deep_research_base_url: Base URL for deep research API (configurable for private deployment)
+        deep_research_model: Model identifier for deep research
+        deep_research_api_key_env: Environment variable name for the API key
     """
-    pass
+    deep_research_base_url: Optional[str] = Field(
+        None,
+        description="Base URL for deep research API. If not set, reads from DEEP_RESEARCH_BASE_URL env var, "
+                    "then falls back to OPENROUTER_API_KEY-based detection."
+    )
+    deep_research_model: str = Field(
+        "perplexity/sonar-deep-research",
+        description="Model identifier for deep research. Override for private/self-hosted models."
+    )
+    deep_research_api_key_env: str = Field(
+        "OPENROUTER_API_KEY",
+        description="Environment variable name to read the deep research API key from."
+    )
 
 
 class MCPConfig(BackendConfig):
     """MCP backend configuration"""
     sandbox: bool = Field(False, description="Whether to enable sandbox")
+    sandbox_backend: str = Field(
+        "e2b",
+        description="Sandbox backend: 'e2b' (cloud, requires E2B_API_KEY) or 'disabled' (fallback to stdio)"
+    )
     auto_initialize: bool = Field(True, description="Whether to auto initialize")
     eager_sessions: bool = Field(False, description="Whether to eagerly create sessions for all servers on initialization")
     retry_interval: float = Field(2.0, ge=0.1, le=60.0, description="Wait time between retries in seconds")
