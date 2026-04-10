@@ -1,7 +1,9 @@
 """SkillRegistry — discover, load, match, and inject skills.
 
 Skills follow the official SKILL.md format:
-  - YAML frontmatter with only ``name`` and ``description``
+  - YAML frontmatter with ``name`` and ``description`` (required)
+  - Optional agentskills.io fields: ``version``, ``author``, ``license``,
+    ``tags``, ``platforms``, ``metadata``
   - Markdown body with instructions (loaded only after selection)
 
 Skills are discovered from user-configured directories and matched to
@@ -29,7 +31,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 from openspace.utils.logging import Logger
-from .skill_utils import parse_frontmatter, strip_frontmatter, check_skill_safety, is_skill_safe
+from .skill_utils import parse_frontmatter, strip_frontmatter, check_skill_safety, is_skill_safe, extract_tags
 from .skill_ranker import SkillRanker, SkillCandidate, PREFILTER_THRESHOLD
 
 if TYPE_CHECKING:
@@ -91,12 +93,27 @@ class SkillMeta:
     ``skill_id`` is the globally unique identifier used throughout the
     system — LLM prompts, database, evolution, and selection all
     reference this field.
+
+    ``tags`` is first-class because it directly affects skill ranking
+    (BM25 + embedding).  All other optional agentskills.io fields
+    (version, author, license, platforms, etc.) are stored in
+    ``metadata`` and accessed on demand.
     """
 
     skill_id: str          # Unique — persisted in .skill_id sidecar
     name: str              # Human-readable name (from frontmatter or dirname)
     description: str
     path: Path             # Absolute path to SKILL.md
+
+    # Tags affect ranking — kept as first-class field
+    tags: Optional[List[str]] = None
+
+    # All other optional fields (version, author, license, platforms, etc.)
+    metadata: Optional[Dict[str, Any]] = None
+
+    def __post_init__(self) -> None:
+        if self.metadata is None:
+            self.metadata = {}
 
 
 class SkillRegistry:
@@ -528,6 +545,7 @@ class SkillRegistry:
                 name=s.name,
                 description=s.description,
                 body=body,
+                tags=s.tags,
             ))
 
         ranked = self.ranker.hybrid_rank(task, candidates, top_k=prefilter_top_k)
@@ -642,20 +660,32 @@ class SkillRegistry:
     ) -> SkillMeta:
         """Parse a SKILL.md file into a SkillMeta.
 
-        Only ``name`` and ``description`` are read from frontmatter
-        (per the official skill format).  ``skill_id`` is read from
-        the ``.skill_id`` sidecar (created if absent).
+        Required fields: ``name`` and ``description``.
+        Optional agentskills.io fields are stored in ``metadata``.
+        ``skill_id`` is read from the ``.skill_id`` sidecar (created if absent).
         """
         frontmatter = parse_frontmatter(content)
         name = frontmatter.get("name", dir_name)
         description = frontmatter.get("description", name)
         skill_id = _read_or_create_skill_id(name, skill_dir)
 
+        # Extract tags via unified helper
+        tags = extract_tags(frontmatter)
+
+        # Collect optional agentskills.io fields into metadata
+        meta_fields: Dict[str, Any] = {}
+        for key in ("version", "author", "license", "platforms", "metadata"):
+            val = frontmatter.get(key)
+            if val is not None:
+                meta_fields[key] = val
+
         return SkillMeta(
             skill_id=skill_id,
             name=name,
             description=description,
             path=skill_file,
+            tags=tags,
+            metadata=meta_fields,
         )
 
     # Frontmatter parsing is delegated to skill_utils (single source of truth).
