@@ -415,18 +415,22 @@ async def execute_task(
 async def search_skills(
     query: str,
     limit: int = 20,
+    include_remote: bool = True,
 ) -> str:
-    """Search skills across local registry.
+    """Search skills across local registry and skills.sh community.
 
     Standalone search for browsing / discovery.  Use this when the bot
     wants to find available skills, then decide whether to handle the
     task locally or delegate to ``execute_task``.
 
-    Uses hybrid ranking: BM25 → embedding re-rank → lexical boost.
+    Local skills are ranked first (BM25 + embedding). When include_remote
+    is True, results from skills.sh (Vercel's open agent skills directory)
+    are appended after local results.
 
     Args:
         query: Search query text (natural language or keywords).
         limit: Maximum results to return (default: 20).
+        include_remote: Search skills.sh for community skills (default: True).
     """
     try:
         from openspace.cloud.search import hybrid_search_skills
@@ -454,6 +458,7 @@ async def search_skills(
             store=store,
             source="local",
             limit=limit,
+            include_remote=include_remote,
         )
 
         output: Dict[str, Any] = {"results": results, "count": len(results)}
