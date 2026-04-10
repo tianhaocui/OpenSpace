@@ -138,14 +138,12 @@ On 50 professional tasks (**📈 [GDPVal Economic Benchmark](#-benchmark-gdpval)
 ## 📋 Table of Contents
 
 - [⚡ Quick Start](#-quick-start)
-  - [🤖 Path A: For Your Agent](#-path-a-for-your-agent)
-  - [👤 Path B: As Your Co-Worker](#-path-b-as-your-co-worker)
+  - [🤖 For Your Agent](#-for-your-agent)
   - [📊 Local Dashboard](#-local-dashboard)
 - [📈 Benchmark: GDPVal](#-benchmark-gdpval)
 - [📊 Showcase: My Daily Monitor](#-showcase-my-daily-monitor)
 - [🏗️ Framework](#️-framework)
   - [🧬 Self-Evolution Engine](#-self-evolution-engine)
-  - [🌐 Cloud Skill Community](#-cloud-skill-community)
 - [🔧 Advanced Configuration](#-advanced-configuration)
   - [🏢 Enterprise / Private Deployment](#-enterprise--private-deployment)
 - [📖 Code Structure](#-code-structure)
@@ -156,7 +154,7 @@ On 50 professional tasks (**📈 [GDPVal Economic Benchmark](#-benchmark-gdpval)
 
 ## ⚡ Quick Start
 
-🌐 **Just want to explore?** Browse community skills, evolution lineage at **[open-space.cloud](https://open-space.cloud)** — no installation needed.
+🌐 **Just want to explore?** Browse the [Quick Start](#-quick-start) guide below.
 
 ```bash
 git clone https://github.com/HKUDS/OpenSpace.git && cd OpenSpace
@@ -174,10 +172,10 @@ openspace-mcp --help   # verify installation
 > ```
 
 **Choose your path:**
-- **[Path A](#-path-a-for-your-agent)** — Plug OpenSpace into your agent
-- **[Path B](#-path-b-as-your-co-worker)** — Use OpenSpace directly as your AI co-worker
+- **[For Your Agent](#-for-your-agent)** — Plug OpenSpace into your agent
+- **[Local Dashboard](#-local-dashboard)** — Browse skills, track lineage, compare diffs
 
-### 🤖 Path A: For Your Agent
+### 🤖 For Your Agent
 
 Works with any agent that supports skills (`SKILL.md`) — [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [Codex](https://github.com/openai/codex), [Hermes](https://github.com/anthropics/hermes), [OpenClaw](https://github.com/openclaw/openclaw), [nanobot](https://github.com/HKUDS/nanobot), etc.
 
@@ -191,8 +189,7 @@ Works with any agent that supports skills (`SKILL.md`) — [Claude Code](https:/
       "toolTimeout": 600,
       "env": {
         "OPENSPACE_HOST_SKILL_DIRS": "/path/to/your/agent/skills",
-        "OPENSPACE_WORKSPACE": "/path/to/OpenSpace",
-        "OPENSPACE_API_KEY": "sk-xxx (optional, for cloud)"
+        "OPENSPACE_WORKSPACE": "/path/to/OpenSpace"
       }
     }
   }
@@ -239,54 +236,7 @@ sync_skills_git(action="push")                 # push evolved skills back to Git
 
 Skills are pulled into the host agent's skill directory (`OPENSPACE_HOST_SKILL_DIRS`) — no separate directory needed.
 
-> [!NOTE]
-> **Cloud community (optional):** Register at **[open-space.cloud](https://open-space.cloud)** to get a `OPENSPACE_API_KEY`, then add it to the `env` block above. Without it, all local capabilities (task execution, evolution, local skill search) work normally.
-
-📖 Per-agent config (OpenClaw / nanobot), all env vars, advanced settings: [`openspace/host_skills/README.md`](openspace/host_skills/README.md)
-
-### 👤 Path B: As Your Co-Worker
-
-Use OpenSpace directly — coding, search, tool use, and more — with self-evolving skills and cloud community built in.
-
-> [!NOTE]
-> Create a `.env` file with your LLM API key and optionally `OPENSPACE_API_KEY` for cloud community access (refer to [`openspace/.env.example`](openspace/.env.example)).
-
-```bash
-# Interactive mode
-openspace
-
-# Execute task
-openspace --model "anthropic/claude-sonnet-4-5" --query "Create a monitoring dashboard for my Docker containers"
-```
-
-Add your own custom skills: [`openspace/skills/README.md`](openspace/skills/README.md).
-
-**Cloud CLI** — manage skills from the command line:
-
-```bash
-openspace-download-skill <skill_id>         # download a skill from the cloud
-openspace-upload-skill /path/to/skill/dir   # upload a skill to the cloud
-```
-
-<details>
-<summary><b>Python API</b></summary>
-
-```python
-import asyncio
-from openspace import OpenSpace
-
-async def main():
-    async with OpenSpace() as cs:
-        result = await cs.execute("Analyze GitHub trending repos and create a report")
-        print(result["response"])
-
-        for skill in result.get("evolved_skills", []):
-            print(f"  Evolved: {skill['name']} ({skill['origin']})")
-
-asyncio.run(main())
-```
-
-</details>
+📖 Per-agent config (OpenClaw / nanobot / Hermes), all env vars, advanced settings: [`openspace/host_skills/README.md`](openspace/host_skills/README.md)
 
 ### 📊 Local Dashboard
 
@@ -310,7 +260,7 @@ npm run dev
 <table>
 <tr>
 <td width="50%"><img src="assets/frontend_1.gif" width="100%" alt="Skill Classes" /></td>
-<td width="50%"><img src="assets/frontend_2.gif" width="100%" alt="Cloud Skill Records" /></td>
+<td width="50%"><img src="assets/frontend_2.gif" width="100%" alt="Skill Records" /></td>
 </tr>
 <tr>
 <td align="center"><sub>Skill Classes — Browse, Search & Sort</sub></td>
@@ -478,9 +428,7 @@ Multi-Layer Tracking: Quality monitoring covers the entire execution stack — f
 **🌐 Collaborative Skill Community**
 A collaborative registry where agents share evolved skills. When one agent evolves an improvement, every connected agent can discover, import, and build on it — turning individual progress into collective intelligence.
 
-- **🔐 Flexible Sharing**: Share skills publicly, within groups, or keep them private. Smart search finds what you need and auto-imports it. Every evolution is lineage-tracked with full diffs.
-
-- **☁️ Collaborative Platform**: open-space.cloud — register for an API key, browse community skills, and manage your groups.
+- **🔐 Flexible Sharing**: Share skills within teams via Git repos using skillpull. Every evolution is lineage-tracked with full diffs.
 
 ---
 
@@ -496,8 +444,6 @@ OpenSpace supports fully private deployment with no cloud dependency:
 |---|---|
 | **LLM** | `OPENSPACE_MODEL=ollama/your-model` + `OLLAMA_API_BASE=http://host:11434` |
 | **Embedding** | `EMBEDDING_API_KEY` + `EMBEDDING_BASE_URL` + `EMBEDDING_MODEL` |
-| **Cloud off** | Leave `OPENSPACE_API_KEY` unset — all local features work normally |
-| **Internal registry** | `OPENSPACE_API_BASE=https://your-internal-api/v1` |
 | **Skill sync** | `openspace-skillpull` CLI for Git-based team skill distribution |
 | **Safety** | `OPENSPACE_SAFETY_LEVEL=strict` blocks all suspicious patterns |
 
@@ -515,8 +461,7 @@ Host agent detection chain: nanobot → openclaw → hermes (auto-detect from co
 OpenSpace/
 ├── openspace/
 │   ├── tool_layer.py                     # OpenSpace main class & OpenSpaceConfig
-│   ├── mcp_server.py                     # MCP Server (5 tools for your agent)
-│   ├── __main__.py                       # CLI entry point (python -m openspace)
+│   ├── mcp_server.py                     # MCP Server (4 tools for your agent)
 │   ├── dashboard_server.py               # Web dashboard API server
 │   │
 │   ├── ⚡ agents/                         # Agent System
@@ -551,12 +496,10 @@ OpenSpace/
 │   │   ├── skill_utils.py                # Shared skill utilities
 │   │   └── types.py                      # SkillRecord, SkillLineage, EvolutionSuggestion
 │   │
-│   ├── 🌐 cloud/                         # Cloud Skill Community
-│   │   ├── client.py                     # HTTP client (upload, download, search)
-│   │   ├── search.py                     # Hybrid search engine
+│   ├── 🌐 cloud/                         # Skill Search & Embedding
+│   │   ├── search.py                     # Hybrid search engine (local)
 │   │   ├── embedding.py                  # Embedding generation for skill search
-│   │   ├── auth.py                       # API key management
-│   │   └── cli/                          # CLI tools (download_skill, upload_skill, skillpull_sync)
+│   │   └── cli/                          # CLI tools (skillpull_sync)
 │   │
 │   ├── 💬 communication/                  # Multi-Channel Communication Gateway
 │   │   ├── gateway.py                    # Message routing, session management, reply dispatch

@@ -75,11 +75,8 @@ Repository = "https://github.com/HKUDS/OpenSpace"
 "Bug Tracker" = "https://github.com/HKUDS/OpenSpace/issues"
 
 [project.scripts]
-openspace = "openspace.__main__:run_main"
 openspace-server = "openspace.local_server.main:main"
 openspace-mcp = "openspace.mcp_server:run_mcp_server"
-openspace-download-skill = "openspace.cloud.cli.download_skill:main"
-openspace-upload-skill = "openspace.cloud.cli.upload_skill:main"
 openspace-dashboard = "openspace.dashboard_server:main"
 openspace-gateway = "openspace.communication.gateway:run_main"
 openspace-skillpull = "openspace.cloud.cli.skillpull_sync:main"

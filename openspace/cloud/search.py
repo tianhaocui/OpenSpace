@@ -396,26 +396,6 @@ async def hybrid_search_skills(
     if source in ("all", "local") and local_skills:
         candidates.extend(build_local_candidates(local_skills, store))
 
-    if source in ("all", "cloud"):
-        try:
-            from openspace.cloud.auth import get_openspace_auth
-            from openspace.cloud.client import OpenSpaceClient
-
-            auth_headers, api_base = get_openspace_auth()
-            if auth_headers:
-                cloud_client = OpenSpaceClient(auth_headers, api_base)
-                cloud_result_limit = limit if source == "cloud" else CLOUD_EMBEDDING_SEARCH_MAX_LIMIT
-                cloud_search_items = await asyncio.to_thread(
-                    cloud_client.search_record_embeddings,
-                    query=normalized_query,
-                    limit=cloud_result_limit,
-                )
-                if source == "cloud":
-                    return build_cloud_results(cloud_search_items, limit=limit)
-                candidates.extend(build_cloud_candidates(cloud_search_items))
-        except Exception as e:
-            logger.warning(f"hybrid_search_skills: cloud unavailable: {e}")
-
     if not candidates:
         return []
 
