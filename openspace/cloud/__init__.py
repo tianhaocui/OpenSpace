@@ -1,19 +1,12 @@
-"""Cloud platform integration.
+"""Cloud platform integration (local-only mode).
 
 Provides:
-  - ``OpenSpaceClient`` — HTTP client for the cloud API
-  - ``get_openspace_auth`` — credential resolution
-  - ``SkillSearchEngine`` — hybrid BM25 + embedding search
-  - ``generate_embedding`` — OpenAI embedding generation
+  - ``SkillSearchEngine`` — hybrid BM25 + embedding search (local skills)
+  - ``generate_embedding`` — embedding generation
 """
-
-from openspace.cloud.auth import get_openspace_auth
 
 
 def __getattr__(name: str):
-    if name == "OpenSpaceClient":
-        from openspace.cloud.client import OpenSpaceClient
-        return OpenSpaceClient
     if name == "SkillSearchEngine":
         from openspace.cloud.search import SkillSearchEngine
         return SkillSearchEngine
@@ -24,8 +17,6 @@ def __getattr__(name: str):
 
 
 __all__ = [
-    "OpenSpaceClient",
-    "get_openspace_auth",
     "SkillSearchEngine",
     "generate_embedding",
 ]
