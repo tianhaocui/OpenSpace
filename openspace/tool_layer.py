@@ -617,19 +617,26 @@ class OpenSpace:
         """Build and populate the SkillRegistry from configured directories.
 
         Discovery order (earlier wins on name collision):
+          0. Auto-detect — scan well-known agent paths + ~/.agents/skills/
           1. ``OPENSPACE_HOST_SKILL_DIRS`` env — host agent skill directories
           2. ``config_grounding.json → skills.skill_dirs`` — user-specified
           3. ``openspace/skills/``       — built-in skills (always present)
 
         ``OPENSPACE_HOST_SKILL_DIRS`` is also handled by ``mcp_server.py``
         for the MCP transport path, but we process it here too so that
-        standalone mode (``python -m openspace``) gets the same skills
-        discovered and synced to the DB for quality tracking / evolution.
+        all modes get the same skills discovered and synced to the DB
+        for quality tracking / evolution.
         """
         skill_paths: List[Path] = []
         skill_cfg = self._grounding_config.skills if self._grounding_config else None
 
-        # 1. Host agent skill directories from env (standalone mode support)
+        # 0. Auto-detect agent skill directories
+        from openspace.host_detection.skill_dirs import auto_detect_skill_dirs
+        for p in auto_detect_skill_dirs():
+            if p not in skill_paths:
+                skill_paths.append(p)
+
+        # 1. Host agent skill directories from env
         import os
         host_dirs_raw = os.environ.get("OPENSPACE_HOST_SKILL_DIRS", "")
         if host_dirs_raw:

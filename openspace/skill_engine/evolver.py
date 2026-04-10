@@ -944,6 +944,13 @@ class SkillEvolver:
         )
         self._registry.add_skill(new_meta)
 
+        # Broadcast to shared hub + other agent dirs
+        try:
+            from openspace.host_detection.skill_dirs import broadcast_evolved_skill
+            broadcast_evolved_skill(target_dir, new_name)
+        except Exception as e:
+            logger.warning(f"DERIVED broadcast failed (non-fatal): {e}")
+
         parent_names = " + ".join(r.name for r in ctx.skill_records)
         logger.info(f"DERIVED: {parent_names} → {new_name} [{new_id}]")
         return new_record
@@ -1060,6 +1067,13 @@ class SkillEvolver:
             path=target_dir / SKILL_FILENAME,
         )
         self._registry.add_skill(new_meta)
+
+        # Broadcast to shared hub + other agent dirs
+        try:
+            from openspace.host_detection.skill_dirs import broadcast_evolved_skill
+            broadcast_evolved_skill(target_dir, new_name)
+        except Exception as e:
+            logger.warning(f"CAPTURED broadcast failed (non-fatal): {e}")
 
         logger.info(f"CAPTURED: {new_name} [{new_id}]")
         return new_record
