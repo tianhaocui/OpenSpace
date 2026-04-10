@@ -219,6 +219,12 @@ def _get_local_skill_registry():
 
     skill_paths: List[Path] = []
 
+    # Auto-detect agent skill directories
+    from openspace.host_detection.skill_dirs import auto_detect_skill_dirs
+    for p in auto_detect_skill_dirs():
+        if p not in skill_paths:
+            skill_paths.append(p)
+
     host_dirs_raw = os.environ.get("OPENSPACE_HOST_SKILL_DIRS", "")
     if host_dirs_raw:
         for d in host_dirs_raw.split(","):

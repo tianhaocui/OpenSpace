@@ -70,7 +70,8 @@ def get_target_dir() -> Path:
 
     Resolution order:
       1. First directory from ``OPENSPACE_HOST_SKILL_DIRS`` (set by host agent)
-      2. Fallback: ``.openspace/skills`` in cwd (standalone / debug mode)
+      2. ``~/.agents/skills/`` shared hub (if exists)
+      3. Fallback: ``.openspace/skills`` in cwd (standalone / debug mode)
     """
     raw = os.environ.get(_HOST_SKILL_DIRS_ENV, "")
     if raw:
@@ -80,6 +81,11 @@ def get_target_dir() -> Path:
             if p.exists():
                 return p
             logger.warning(f"{_HOST_SKILL_DIRS_ENV} first dir does not exist: {first}")
+
+    shared_hub = Path.home() / ".agents" / "skills"
+    if shared_hub.exists():
+        return shared_hub
+
     return Path.cwd() / ".openspace" / "skills"
 
 
