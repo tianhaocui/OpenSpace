@@ -130,3 +130,19 @@ upload_skill(
 - If `execute_task` times out, first check the host's MCP timeout settings. Changing from `stdio` to HTTP (`sse` or `streamable-http`) does not remove host-side per-call time limits.
 - `upload_skill` requires a cloud API key; if it fails, the evolved skill is still saved locally.
 - After every OpenSpace call, **tell the user** what happened: task result, any evolved skills, and your upload decision.
+
+## Host-Specific Tool Names
+
+Some host agents prefix MCP tool names. Use the correct name for your host:
+
+| Host Agent | Tool Name Format | Example |
+|------------|-----------------|---------|
+| nanobot / openclaw | `execute_task` | `execute_task(task="...")` |
+| Claude Code | `mcp__openspace__execute_task` | `mcp__openspace__execute_task(task="...")` |
+| Hermes Agent | `mcp_openspace_execute_task` | `mcp_openspace_execute_task(task="...")` |
+
+Hermes Agent uses `mcp_<server>_<tool>` naming. All 4 tools are available as:
+- `mcp_openspace_execute_task`
+- `mcp_openspace_search_skills`
+- `mcp_openspace_fix_skill`
+- `mcp_openspace_upload_skill`

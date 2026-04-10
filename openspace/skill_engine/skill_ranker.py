@@ -55,6 +55,7 @@ class SkillCandidate:
     description: str
     body: str = ""             # SKILL.md body (frontmatter stripped)
     source: str = "local"      # "local" | "cloud"
+    tags: Optional[List[str]] = None  # agentskills.io tags for ranking boost
     # Internal ranking fields
     embedding: Optional[List[float]] = None
     embedding_text: str = ""   # text used to compute embedding
@@ -203,10 +204,12 @@ class SkillRanker:
         except ImportError:
             BM25Okapi = None
 
-        # Build corpus: name + description + truncated body for richer matching
+        # Build corpus: name + description + tags + truncated body for richer matching
         corpus_tokens = []
         for c in candidates:
             text = f"{c.name} {c.description}"
+            if c.tags:
+                text += f" {' '.join(c.tags)}"
             if c.body:
                 text += f" {c.body[:2000]}"  # include body for BM25 but cap length
             corpus_tokens.append(self._tokenize(text))
