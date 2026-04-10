@@ -11,8 +11,8 @@ from typing import List, Optional, Tuple
 
 logger = logging.getLogger("openspace.cloud")
 
-# Constants (duplicated here to avoid top-level import of skill_ranker)
-SKILL_EMBEDDING_MODEL = "openai/text-embedding-3-small"
+# Constants — model is overridable via EMBEDDING_MODEL env var
+SKILL_EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL", "openai/text-embedding-3-small")
 SKILL_EMBEDDING_MAX_CHARS = 12_000
 SKILL_EMBEDDING_DIMENSIONS = 1536
 
@@ -24,13 +24,20 @@ def resolve_embedding_api() -> Tuple[Optional[str], str]:
     """Resolve API key and base URL for embedding requests.
 
     Priority:
+      0. ``EMBEDDING_API_KEY`` + ``EMBEDDING_BASE_URL`` (enterprise override)
       1. ``OPENROUTER_API_KEY`` → OpenRouter base URL
       2. ``OPENAI_API_KEY`` + ``OPENAI_BASE_URL`` (default ``api.openai.com``)
-      3. host-agent config (nanobot / openclaw)
+      3. host-agent config (nanobot / openclaw / hermes)
 
     Returns:
         ``(api_key, base_url)`` — *api_key* may be ``None`` when no key is found.
     """
+    # Tier 0: explicit enterprise embedding config
+    emb_key = os.environ.get("EMBEDDING_API_KEY", "").strip()
+    if emb_key:
+        emb_base = os.environ.get("EMBEDDING_BASE_URL", _OPENAI_BASE).strip().rstrip("/")
+        return emb_key, emb_base
+
     or_key = os.environ.get("OPENROUTER_API_KEY")
     if or_key:
         return or_key, _OPENROUTER_BASE

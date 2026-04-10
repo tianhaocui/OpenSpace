@@ -46,6 +46,8 @@ from .patch import (
     SKILL_FILENAME,
 )
 from .skill_utils import (
+    check_skill_safety as _check_skill_safety,
+    is_skill_safe as _is_skill_safe,
     extract_change_summary as _extract_change_summary,
     get_frontmatter_field as _extract_frontmatter_field,
     set_frontmatter_field as _set_frontmatter_field,
@@ -683,6 +685,26 @@ class SkillEvolver:
         logger.debug("LLM confirmation response was ambiguous, defaulting to skip")
         return False
 
+    @staticmethod
+    def _check_evolved_skill_safety(
+        content_snapshot: Dict[str, str],
+    ) -> tuple[bool, list[str]]:
+        """Check evolved skill content against safety rules.
+
+        Examines all text files in the snapshot (not just SKILL.md).
+
+        Returns:
+            ``(passed, flags)`` — *passed* is False when any ``blocked.*``
+            flag is triggered.  ``suspicious.*`` flags are included for
+            logging but do not block.
+        """
+        all_flags: list[str] = []
+        for filename, content in content_snapshot.items():
+            flags = _check_skill_safety(content)
+            all_flags.extend(flags)
+        passed = _is_skill_safe(all_flags)
+        return passed, all_flags
+
     async def _evolve_fix(self, ctx: EvolutionContext) -> Optional[SkillRecord]:
         """In-place fix: same name, same directory, new version record.
 
@@ -723,6 +745,14 @@ class SkillEvolver:
             prompt=prompt,
         )
         if edit_result is None or not edit_result.ok:
+            return None
+
+        # Safety check on evolved content before activation
+        safe, flags = self._check_evolved_skill_safety(edit_result.content_snapshot)
+        if flags:
+            logger.info("FIX safety flags on %s: %s", parent.name, flags)
+        if not safe:
+            logger.warning("FIX blocked by safety check on %s: %s", parent.name, flags)
             return None
 
         # Re-read name/description from the updated SKILL.md on disk —
@@ -850,6 +880,15 @@ class SkillEvolver:
         if edit_result is None or not edit_result.ok:
             return None
 
+        # Safety check on evolved content before activation
+        safe, flags = self._check_evolved_skill_safety(edit_result.content_snapshot)
+        if flags:
+            logger.info("DERIVED safety flags on %s: %s", new_name, flags)
+        if not safe:
+            logger.warning("DERIVED blocked by safety check on %s: %s", new_name, flags)
+            shutil.rmtree(target_dir, ignore_errors=True)
+            return None
+
         # Extract description from new content
         new_desc = _extract_frontmatter_field(new_content, "description") or first_parent.description
 
@@ -972,6 +1011,15 @@ class SkillEvolver:
             cleanup_on_retry=target_dir,
         )
         if edit_result is None or not edit_result.ok:
+            return None
+
+        # Safety check on evolved content before activation
+        safe, flags = self._check_evolved_skill_safety(edit_result.content_snapshot)
+        if flags:
+            logger.info("CAPTURED safety flags on %s: %s", new_name, flags)
+        if not safe:
+            logger.warning("CAPTURED blocked by safety check on %s: %s", new_name, flags)
+            shutil.rmtree(target_dir, ignore_errors=True)
             return None
 
         snapshot = edit_result.content_snapshot
