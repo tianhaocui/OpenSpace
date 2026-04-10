@@ -16,6 +16,7 @@ Supported host agents:
 
   - **nanobot** — ``~/.nanobot/config.json``  (``tools.mcpServers.openspace.env``)
   - **openclaw** — ``~/.openclaw/openclaw.json``  (``skills.entries.openspace.env``)
+  - **hermes** — ``~/.hermes/config.yaml``  (``mcp_servers.openspace.env``)
 """
 
 import logging
@@ -37,6 +38,12 @@ from openspace.host_detection.openclaw import (
     read_openclaw_skill_env,
     try_read_openclaw_config,
 )
+from openspace.host_detection.hermes import (
+    get_hermes_openai_api_key as _hermes_get_openai_api_key,
+    is_hermes_host,
+    read_hermes_mcp_env,
+    try_read_hermes_config,
+)
 
 logger = logging.getLogger("openspace.host_detection")
 
@@ -45,13 +52,26 @@ def read_host_mcp_env() -> Dict[str, str]:
     """Read the OpenSpace env block from the current host agent config.
 
     Resolution order:
+      0. ``OPENSPACE_HOST`` env var — if set, skip auto-detection
       1. nanobot — ``tools.mcpServers.openspace.env``
       2. openclaw — ``skills.entries.openspace.env``
-      3. Empty dict (no host detected)
+      3. hermes — ``mcp_servers.openspace.env``
+      4. Empty dict (no host detected)
 
     Callers (e.g. ``cloud.auth``) use this single entry point and never
     need to know which host agent is active.
     """
+    import os
+    explicit_host = os.environ.get("OPENSPACE_HOST", "").strip().lower()
+    if explicit_host:
+        if explicit_host == "nanobot":
+            return read_nanobot_mcp_env()
+        if explicit_host == "openclaw":
+            return read_openclaw_skill_env("openspace")
+        if explicit_host == "hermes":
+            return read_hermes_mcp_env("openspace")
+        logger.warning("Unknown OPENSPACE_HOST=%r, falling back to auto-detection", explicit_host)
+
     # Try nanobot first (most common deployment)
     env = read_nanobot_mcp_env()
     if env:
@@ -63,6 +83,12 @@ def read_host_mcp_env() -> Dict[str, str]:
         logger.debug("read_host_mcp_env: resolved from OpenClaw config")
         return env
 
+    # Try hermes
+    env = read_hermes_mcp_env("openspace")
+    if env:
+        logger.debug("read_host_mcp_env: resolved from Hermes config")
+        return env
+
     return {}
 
 
@@ -70,16 +96,32 @@ def get_openai_api_key() -> Optional[str]:
     """Get OpenAI API key for embedding generation (multi-host).
 
     Resolution:
+      0. ``OPENSPACE_HOST`` env var — if set, try only that host
       1. ``OPENAI_API_KEY`` env var  (checked inside nanobot reader)
       2. nanobot config ``providers.openai.apiKey``
       3. openclaw config ``skills.entries.openspace.env.OPENAI_API_KEY``
-      4. None
+      4. hermes config / env
+      5. None
     """
-    # nanobot reader already checks OPENAI_API_KEY env var first
+    import os
+    explicit_host = os.environ.get("OPENSPACE_HOST", "").strip().lower()
+    if explicit_host:
+        if explicit_host == "nanobot":
+            return _nanobot_get_openai_api_key()
+        if explicit_host == "openclaw":
+            return _openclaw_get_openai_api_key()
+        if explicit_host == "hermes":
+            return _hermes_get_openai_api_key()
+        logger.warning("Unknown OPENSPACE_HOST=%r, falling back to auto-detection", explicit_host)
+
+    # Auto-detection chain
     key = _nanobot_get_openai_api_key()
     if key:
         return key
-    return _openclaw_get_openai_api_key()
+    key = _openclaw_get_openai_api_key()
+    if key:
+        return key
+    return _hermes_get_openai_api_key()
 
 
 __all__ = [
@@ -93,4 +135,7 @@ __all__ = [
     "is_openclaw_host",
     "read_openclaw_skill_env",
     "try_read_openclaw_config",
+    "is_hermes_host",
+    "read_hermes_mcp_env",
+    "try_read_hermes_config",
 ]

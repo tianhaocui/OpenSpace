@@ -19,6 +19,7 @@ The endpoint is common; the **host config syntax is not**. nanobot uses `tools.m
 |------------|-------------|
 | **[nanobot](https://github.com/HKUDS/nanobot)** | [Setup for nanobot](#setup-for-nanobot) |
 | **[openclaw](https://github.com/openclaw/openclaw)** | [Setup for openclaw](#setup-for-openclaw) |
+| **[Hermes Agent](https://github.com/NousResearch/hermes-agent)** | [Setup for Hermes Agent](#setup-for-hermes-agent) |
 | **Other agents** | Follow the [generic setup](../../README.md#-path-a-empower-your-agent-with-openspace) in the main README |
 
 ---
@@ -127,6 +128,72 @@ openclaw mcp set openspace '{"url":"http://127.0.0.1:8080","connectionTimeoutMs"
 
 ---
 
+## Setup for Hermes Agent
+
+Hermes Agent connects to OpenSpace via its built-in MCP client. OpenSpace auto-detects Hermes credentials from `~/.hermes/config.yaml`.
+
+### 1. Install OpenSpace
+
+```bash
+pip install openspace
+```
+
+### 2. Option A: stdio (simplest)
+
+Add to `~/.hermes/config.yaml`:
+
+```yaml
+mcp_servers:
+  openspace:
+    command: "openspace-mcp"
+    env:
+      OPENSPACE_API_KEY: "sk-xxx"  # optional, enables cloud skill search/upload
+    timeout: 600  # important: execute_task can take minutes
+```
+
+> [!TIP]
+> LLM credentials are auto-detected from Hermes's `model.*` config and provider env vars — no need to set `OPENSPACE_LLM_API_KEY`.
+
+### 3. Option B: remote HTTP transport
+
+Start OpenSpace as a standalone server:
+
+```bash
+openspace-mcp --transport sse --host 127.0.0.1 --port 8080
+```
+
+Then in `~/.hermes/config.yaml`:
+
+```yaml
+mcp_servers:
+  openspace:
+    url: "http://127.0.0.1:8080/sse"
+    timeout: 600
+```
+
+### 4. Verify
+
+After configuring, Hermes will auto-discover 4 tools (prefixed as `mcp_openspace_*`):
+
+```
+hermes tools  # should show mcp_openspace_execute_task, etc.
+```
+
+### 5. Host skills (optional)
+
+Copy the host skills to Hermes's skill directory for better delegation decisions:
+
+```bash
+cp -r host_skills/delegate-task/ ~/.hermes/skills/
+cp -r host_skills/skill-discovery/ ~/.hermes/skills/
+```
+
+### Skill format compatibility
+
+Hermes skills use the [agentskills.io](https://agentskills.io) standard with optional fields like `version`, `author`, `tags`, `platforms`, and `metadata`. OpenSpace now supports these fields — skills authored in Hermes work in OpenSpace and vice versa.
+
+---
+
 ## Environment Variables (Agent-Specific)
 
 The three env vars in each agent's setup above are the most important. For the **full env var list**, config files reference, and advanced settings, see the [Configuration Guide](../../README.md#configuration-guide) in the main README.
@@ -150,7 +217,7 @@ All tools default to `"all"` (local + cloud) and **automatically fall back** to 
 ## How It Works
 
 ```
-Your Agent (nanobot / openclaw / ...)
+Your Agent (nanobot / openclaw / Hermes Agent / ...)
   │
   │  MCP protocol (stdio | HTTP/SSE | streamable-http)
   ▼

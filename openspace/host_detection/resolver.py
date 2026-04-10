@@ -147,8 +147,12 @@ def build_llm_kwargs(model: str) -> tuple[str, Dict[str, Any]]:
 
     Tier 3 — Host-agent config file fallback (only when Tier 1+2 absent)::
 
+        If ``OPENSPACE_HOST`` is set, only that host is tried.
+        Otherwise auto-detection chain:
+
         nanobot  → ``~/.nanobot/config.json``
         openclaw → ``~/.openclaw/openclaw.json``
+        hermes   → ``~/.hermes/config.yaml``
 
     Returns:
         ``(resolved_model, llm_kwargs_dict)``
@@ -171,15 +175,45 @@ def build_llm_kwargs(model: str) -> tuple[str, Dict[str, Any]]:
     host_config = None
     host_source = None
     if not has_explicit_llm_override and not provider_native_env_used:
-        from openspace.host_detection.nanobot import try_read_nanobot_config
-        host_config = try_read_nanobot_config(model)
-        if host_config:
-            host_source = "nanobot config"
-        else:
-            from openspace.host_detection.openclaw import try_read_openclaw_config
-            host_config = try_read_openclaw_config(model)
+        explicit_host = os.environ.get("OPENSPACE_HOST", "").strip().lower()
+
+        if explicit_host:
+            # Explicit host selection — skip auto-detection chain
+            if explicit_host == "nanobot":
+                from openspace.host_detection.nanobot import try_read_nanobot_config
+                host_config = try_read_nanobot_config(model)
+                if host_config:
+                    host_source = "nanobot config"
+            elif explicit_host == "openclaw":
+                from openspace.host_detection.openclaw import try_read_openclaw_config
+                host_config = try_read_openclaw_config(model)
+                if host_config:
+                    host_source = "openclaw config"
+            elif explicit_host == "hermes":
+                from openspace.host_detection.hermes import try_read_hermes_config
+                host_config = try_read_hermes_config(model)
+                if host_config:
+                    host_source = "hermes config"
+            else:
+                logger.warning("Unknown OPENSPACE_HOST=%r, falling back to auto-detection", explicit_host)
+                explicit_host = ""  # fall through to auto-detection
+
+        if not explicit_host:
+            # Auto-detection chain: nanobot → openclaw → hermes
+            from openspace.host_detection.nanobot import try_read_nanobot_config
+            host_config = try_read_nanobot_config(model)
             if host_config:
-                host_source = "openclaw config"
+                host_source = "nanobot config"
+            else:
+                from openspace.host_detection.openclaw import try_read_openclaw_config
+                host_config = try_read_openclaw_config(model)
+                if host_config:
+                    host_source = "openclaw config"
+                else:
+                    from openspace.host_detection.hermes import try_read_hermes_config
+                    host_config = try_read_hermes_config(model)
+                    if host_config:
+                        host_source = "hermes config"
 
     if host_config:
         host_model = host_config.pop("_model", None)
