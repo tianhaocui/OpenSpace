@@ -10,6 +10,7 @@ Provides:
 
 from __future__ import annotations
 
+import os
 import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -21,16 +22,29 @@ logger = Logger.get_logger(__name__)
 SKILL_FILENAME = "SKILL.md"
 
 _SAFETY_RULES = [
+    # ── Blocked: always rejected ──
     ("blocked.malware",         re.compile(r"(ClawdAuthenticatorTool)", re.IGNORECASE)),
+    ("blocked.pipe_to_shell",   re.compile(r"(curl|wget)\s[^\n]*\|\s*(sh|bash|zsh)", re.IGNORECASE)),
+    ("blocked.reverse_shell",   re.compile(r"bash\s+-i\s+>&\s*/dev/tcp/", re.IGNORECASE)),
+    ("blocked.exfiltration",    re.compile(r"curl\s[^\n]*-[dX]\s*POST[^\n]*\$\(", re.IGNORECASE)),
+    # ── Suspicious: informational (blocked only in strict mode) ──
     ("suspicious.keyword",      re.compile(r"(malware|stealer|phish|phishing|keylogger)", re.IGNORECASE)),
     ("suspicious.secrets",      re.compile(r"(api[-_ ]?key|token|password|private key|secret)", re.IGNORECASE)),
     ("suspicious.crypto",       re.compile(r"(wallet|seed phrase|mnemonic|crypto)", re.IGNORECASE)),
     ("suspicious.webhook",      re.compile(r"(discord\.gg|webhook|hooks\.slack)", re.IGNORECASE)),
-    ("suspicious.script",       re.compile(r"(curl[^\n]+\|\s*(sh|bash))", re.IGNORECASE)),
     ("suspicious.url_shortener", re.compile(r"(bit\.ly|tinyurl\.com|t\.co|goo\.gl|is\.gd)", re.IGNORECASE)),
+    ("suspicious.prompt_injection", re.compile(
+        r"(ignore\s+(all\s+)?previous\s+instructions|disregard\s+(all\s+)?(above|prior))",
+        re.IGNORECASE,
+    )),
 ]
 
-_BLOCKING_FLAGS = frozenset({"blocked.malware"})
+_BLOCKING_FLAGS = frozenset({
+    "blocked.malware",
+    "blocked.pipe_to_shell",
+    "blocked.reverse_shell",
+    "blocked.exfiltration",
+})
 
 
 def check_skill_safety(text: str) -> List[str]:
@@ -45,9 +59,20 @@ def is_skill_safe(flags: List[str]) -> bool:
     """Return True if *flags* contain no blocking flag.
 
     ``suspicious.*`` flags are informational (logged / attached to search
-    results) but do NOT block.  Only ``blocked.*`` flags cause rejection.
+    results) but do NOT block — unless ``OPENSPACE_SAFETY_LEVEL=strict``,
+    in which case all ``suspicious.*`` flags also block.
+
+    Only ``blocked.*`` flags cause rejection in standard mode.
     """
-    return not any(f in _BLOCKING_FLAGS for f in flags)
+    if not flags:
+        return True
+    strict = os.environ.get("OPENSPACE_SAFETY_LEVEL", "standard").lower() == "strict"
+    for f in flags:
+        if f in _BLOCKING_FLAGS:
+            return False
+        if strict and f.startswith("suspicious."):
+            return False
+    return True
 
 _FRONTMATTER_RE = re.compile(r"^---\n(.*?)\n---", re.DOTALL)
 
