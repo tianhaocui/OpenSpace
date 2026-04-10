@@ -313,6 +313,11 @@ class OpenSpaceClient:
         if not name:
             raise CloudError("SKILL.md frontmatter missing 'name' field")
 
+        # Auto-extract tags from frontmatter if not explicitly provided
+        if tags is None:
+            from openspace.skill_engine.skill_utils import extract_tags
+            tags = extract_tags(fm)
+
         parents = parent_skill_ids or []
         self._validate_origin_parents(origin, parents)
 

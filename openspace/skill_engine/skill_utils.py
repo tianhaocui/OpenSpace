@@ -301,6 +301,49 @@ def validate_skill_dir(skill_dir: Path) -> Optional[str]:
     return None
 
 
+def _parse_tag_value(raw: Any) -> Optional[List[str]]:
+    """Coerce a raw tag value into a list of strings.
+
+    Handles:
+      - Python list (from full YAML parser): ``["a", "b"]`` → as-is
+      - Inline YAML list string: ``"[a, b, c]"`` → split + strip
+      - Comma-separated string: ``"a, b, c"`` → split + strip
+      - Empty / None → None
+    """
+    if isinstance(raw, list):
+        return [str(t).strip() for t in raw if str(t).strip()]
+    if isinstance(raw, str) and raw.strip():
+        s = raw.strip()
+        # Strip surrounding brackets: "[a, b]" → "a, b"
+        if s.startswith("[") and s.endswith("]"):
+            s = s[1:-1]
+        tags = [t.strip() for t in s.split(",") if t.strip()]
+        return tags if tags else None
+    return None
+
+
+def extract_tags(frontmatter: Dict[str, Any]) -> Optional[List[str]]:
+    """Extract tags from SKILL.md frontmatter, supporting multiple formats.
+
+    Resolution order:
+      1. ``tags`` (top-level — list or comma-separated string)
+      2. ``metadata.hermes.tags`` (Hermes/agentskills.io nested format)
+
+    Returns a list of tag strings, or None if no tags found.
+    """
+    raw_tags = frontmatter.get("tags")
+    result = _parse_tag_value(raw_tags)
+    if result:
+        return result
+    # Fallback: Hermes-style metadata.hermes.tags
+    meta = frontmatter.get("metadata", {})
+    if isinstance(meta, dict):
+        hermes_block = meta.get("hermes", {})
+        if isinstance(hermes_block, dict):
+            return _parse_tag_value(hermes_block.get("tags"))
+    return None
+
+
 def truncate(text: str, max_chars: int) -> str:
     """Truncate *text* to *max_chars* with an ellipsis marker."""
     if len(text) <= max_chars:

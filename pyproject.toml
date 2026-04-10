@@ -28,6 +28,7 @@ dependencies = [
     "pydantic>=2.12.0",
     "aiohttp>=3.10.0",
     "requests>=2.32.0",
+    "pyyaml>=6.0",
 ]
 
 [project.optional-dependencies]
