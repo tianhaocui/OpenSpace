@@ -6,6 +6,9 @@ Implements the search pipeline:
   Phase 3: Hybrid score = vector_score + lexical_boost
   Phase 4: Deduplication + limit
 
+Remote search via skills.sh (Vercel's open agent skills directory)
+is merged with local results when ``include_remote=True``.
+
 Used by MCP ``search_skills`` tool, ``retrieve_skill`` agent tool,
 and potentially other search interfaces.
 """
@@ -13,8 +16,10 @@ and potentially other search interfaces.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import re
+import urllib.request
 from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger("openspace.cloud")
@@ -282,83 +287,42 @@ def build_local_candidates(
     return candidates
 
 
-def build_cloud_candidates(
-    cloud_items: List[Dict[str, Any]],
-) -> List[Dict[str, Any]]:
-    """Build search candidate dicts from cloud metadata/search items.
+_SKILLS_SH_API = "https://skills.sh/api/search"
+_SKILLS_SH_TIMEOUT = 5
 
-    Args:
-        cloud_items: Items from cloud metadata or embedding search endpoints.
 
-    Returns:
-        List of candidate dicts (with safety filtering applied).
+def _search_skills_sh(query: str, limit: int = 10) -> List[Dict[str, Any]]:
+    """Search skills.sh (Vercel's open agent skills directory).
+
+    Returns candidate dicts compatible with ``SkillSearchEngine.search()``.
+    Failures are silently swallowed — this is a best-effort remote search.
     """
-    candidates: List[Dict[str, Any]] = []
-    for item in cloud_items:
-        candidate_name = item.get("name", "")
-        candidate_description = item.get("description", "")
-        candidate_tags = item.get("tags", [])
-        safety_text = f"{candidate_name}\n{candidate_description}\n{' '.join(candidate_tags)}"
-        flags = _check_safety(safety_text)
-        if not _is_safe(flags):
-            continue
+    try:
+        url = f"{_SKILLS_SH_API}?q={urllib.request.quote(query)}&limit={limit}"
+        req = urllib.request.Request(url, headers={"User-Agent": "OpenSpace/1.0"})
+        with urllib.request.urlopen(req, timeout=_SKILLS_SH_TIMEOUT) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+    except Exception as e:
+        logger.debug("skills.sh search failed (non-fatal): %s", e)
+        return []
 
-        candidate_entry: Dict[str, Any] = {
-            "skill_id": item.get("record_id", ""),
-            "name": candidate_name,
-            "description": candidate_description,
-            "source": "cloud",
-            "visibility": item.get("visibility", "public"),
-            "is_local": False,
-            "created_by": item.get("created_by", ""),
-            "origin": item.get("origin", ""),
-            "tags": candidate_tags,
-            "safety_flags": flags if flags else None,
-        }
-        # Carry pre-computed embedding
-        server_embedding = item.get("embedding")
-        if server_embedding and isinstance(server_embedding, list):
-            candidate_entry["_embedding"] = server_embedding
-        server_search_rank = item.get("search_rank")
-        if isinstance(server_search_rank, (int, float)):
-            candidate_entry["_search_rank"] = float(server_search_rank)
-        candidates.append(candidate_entry)
-
-    return candidates
-
-
-def build_cloud_results(
-    cloud_search_items: List[Dict[str, Any]],
-    *,
-    limit: int,
-) -> List[Dict[str, Any]]:
-    """Map server-ranked cloud search rows to MCP search result shape."""
     results: List[Dict[str, Any]] = []
-    seen_names: set[str] = set()
-
-    for candidate in build_cloud_candidates(cloud_search_items):
-        candidate_name = candidate.get("name", "")
-        dedupe_name = candidate_name or candidate.get("skill_id", "")
-        if dedupe_name in seen_names:
+    for skill in data.get("skills", []):
+        name = skill.get("name", "")
+        source = skill.get("source", "")
+        slug = skill.get("id", "")
+        if not name:
             continue
-        seen_names.add(dedupe_name)
-
-        entry: Dict[str, Any] = {
-            "skill_id": candidate.get("skill_id", ""),
-            "name": candidate_name,
-            "description": candidate.get("description", ""),
-            "source": "cloud",
-            "score": round(float(candidate.get("_search_rank", 0.0)), 4),
-        }
-        if isinstance(candidate.get("_search_rank"), (int, float)):
-            entry["server_search_rank"] = round(float(candidate["_search_rank"]), 4)
-        for key in ("visibility", "created_by", "origin", "tags", "safety_flags"):
-            if candidate.get(key):
-                entry[key] = candidate[key]
-        results.append(entry)
-        if len(results) >= limit:
-            break
-
+        results.append({
+            "skill_id": f"skills-sh:{slug}",
+            "name": name,
+            "description": f"From skills.sh — install: npx skills add {source}@{name}",
+            "source": "skills.sh",
+            "is_local": False,
+            "installs": skill.get("installs", 0),
+            "install_command": f"npx skills add {source}@{name}" if source else f"npx skills add {slug}",
+            "url": f"https://skills.sh/{slug}",
+        })
     return results
 
 
@@ -366,21 +330,23 @@ async def hybrid_search_skills(
     query: str,
     local_skills: list = None,
     store: Any = None,
-    source: str = "all",
+    source: str = "local",
     limit: int = 20,
+    include_remote: bool = False,
 ) -> List[Dict[str, Any]]:
-    """Shared cloud+local skill search with graceful fallback.
+    """Local skill search with optional skills.sh remote results.
 
     Builds candidates, generates embeddings, runs ``SkillSearchEngine``.
-    Cloud is attempted when *source* includes it; failures are silently
-    skipped so the caller always gets local results at minimum.
+    When *include_remote* is True, skills.sh results are appended after
+    local results (local always takes priority).
 
     Args:
         query: Free-text search query.
         local_skills: ``SkillMeta`` list (from ``registry.list_skills()``).
         store: Optional ``SkillStore`` for quality enrichment.
-        source: ``"all"`` | ``"local"`` | ``"cloud"``.
+        source: ``"local"`` (only local supported now).
         limit: Maximum results.
+        include_remote: If True, also search skills.sh and append results.
 
     Returns:
         Ranked result dicts (same format as ``SkillSearchEngine.search()``).
@@ -415,4 +381,26 @@ async def hybrid_search_skills(
         pass
 
     engine = SkillSearchEngine()
-    return engine.search(normalized_query, candidates, query_embedding=query_embedding, limit=limit)
+    results = engine.search(normalized_query, candidates, query_embedding=query_embedding, limit=limit)
+
+    # Append skills.sh remote results (after local, best-effort)
+    if include_remote:
+        local_names = {r["name"].lower() for r in results}
+        try:
+            remote = await asyncio.to_thread(_search_skills_sh, normalized_query, limit)
+            for r in remote:
+                if r["name"].lower() not in local_names:
+                    results.append({
+                        "skill_id": r["skill_id"],
+                        "name": r["name"],
+                        "description": r["description"],
+                        "source": "skills.sh",
+                        "score": 0,
+                        "installs": r.get("installs", 0),
+                        "install_command": r.get("install_command", ""),
+                        "url": r.get("url", ""),
+                    })
+        except Exception:
+            pass
+
+    return results[:limit]
