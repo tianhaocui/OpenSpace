@@ -8,14 +8,14 @@
 
 | 🔋 **46% Fewer Tokens** | **💰 $11K earned in 6 Hours** | 🧬 **Self-Evolving Skills** | 🌐 **Agents Experience Sharing** |
 
-[![Agents](https://img.shields.io/badge/Agents-Claude_Code%20%7C%20Codex%20%7C%20OpenClaw%20%7C%20nanobot%20%7C%20...-99C9BF.svg)](https://modelcontextprotocol.io/)
+[![Agents](https://img.shields.io/badge/Agents-Claude_Code%20%7C%20Codex%20%7C%20Hermes%20%7C%20OpenClaw%20%7C%20nanobot%20%7C%20...-99C9BF.svg)](https://modelcontextprotocol.io/)
 [![Python](https://img.shields.io/badge/Python-3.12+-FCE7D6.svg)](https://www.python.org/)
 [![License](https://img.shields.io/badge/License-MIT-C1E5F5.svg)](https://opensource.org/licenses/MIT/)
 [![Feishu](https://img.shields.io/badge/Feishu-Group-E9DBFC?style=flat&logo=larksuite&logoColor=white)](./COMMUNICATION.md)
 [![WeChat](https://img.shields.io/badge/WeChat-Group-C5EAB4?style=flat&logo=wechat&logoColor=white)](./COMMUNICATION.md)
 [![中文文档](https://img.shields.io/badge/文档-中文版-F5C6C6?style=flat)](./README_CN.md)
 
-**One Command to Evolve All Your AI Agents**: OpenClaw, nanobot, Claude Code, Codex, Cursor and etc.
+**One Command to Evolve All Your AI Agents**: OpenClaw, nanobot, Hermes, Claude Code, Codex, Cursor and etc.
 
 <img src="assets/cli-typing.gif" width="500px" alt="openspace --query your task">
 
@@ -25,6 +25,8 @@
 
 ## 📢 News
 
+- **2026-04-10** 🛡️ **Phase 2 batch 1** — Embedding config unified (`EMBEDDING_API_KEY`/`EMBEDDING_BASE_URL`/`EMBEDDING_MODEL` now respected by skill ranking), evolved skills now pass safety checks before activation, new blocking rules for reverse shells / pipe-to-shell / data exfiltration, `OPENSPACE_SAFETY_LEVEL=strict` mode.
+- **2026-04-10** 🤝 **Hermes Agent + skillpull** — Hermes added as third host agent (auto-detect `~/.hermes/config.yaml`), bidirectional Git skill sync via `sync_skills_git` MCP tool and `openspace-skillpull` CLI.
 - **2026-04-09** 💬 Multi-channel **communication gateway**. OpenSpace can now receive and respond to messages from external platforms. Ships with **WhatsApp** (Baileys bridge + QR auth) and **Feishu** (HTTP webhook) adapters, session management, attachment caching, and allowlist-based access control. See [`openspace/config/README.md`](openspace/config/README.md) for setup.
 - **2026-04-07** 🌐 OpenSpace MCP now supports standalone **SSE** and **streamable HTTP** startup, making it easier for remote hosts to connect over HTTP instead of stdio and bypass stdio-bound MCP server timeout bottlenecks. See the [host integration guide](openspace/host_skills/README.md) for setup details.
 - **2026-04-06** 🛠️ Fixed multiple runtime issues across grounding, MCP serving, skill evolution, and persistence, improving execution stability and recovery in long-running workflows.
@@ -145,6 +147,7 @@ On 50 professional tasks (**📈 [GDPVal Economic Benchmark](#-benchmark-gdpval)
   - [🧬 Self-Evolution Engine](#-self-evolution-engine)
   - [🌐 Cloud Skill Community](#-cloud-skill-community)
 - [🔧 Advanced Configuration](#-advanced-configuration)
+  - [🏢 Enterprise / Private Deployment](#-enterprise--private-deployment)
 - [📖 Code Structure](#-code-structure)
 - [🤝 Contribute & Roadmap](#-contribute--roadmap)
 - [🔗 Related Projects](#-related-projects)
@@ -176,7 +179,7 @@ openspace-mcp --help   # verify installation
 
 ### 🤖 Path A: For Your Agent
 
-Works with any agent that supports skills (`SKILL.md`) — [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [Codex](https://github.com/openai/codex), [OpenClaw](https://github.com/openclaw/openclaw), [nanobot](https://github.com/HKUDS/nanobot), etc.
+Works with any agent that supports skills (`SKILL.md`) — [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [Codex](https://github.com/openai/codex), [Hermes](https://github.com/anthropics/hermes), [OpenClaw](https://github.com/openclaw/openclaw), [nanobot](https://github.com/HKUDS/nanobot), etc.
 
 **① Add OpenSpace to your agent's MCP config:**
 
@@ -219,6 +222,22 @@ cp -r OpenSpace/openspace/host_skills/skill-discovery/ /path/to/your/agent/skill
 ```
 
 Done. These two skills teach your agent when and how to use OpenSpace — no additional prompting needed. Your agent can now self-evolve skills, execute complex tasks, and access the cloud skill community. You can also add your own custom skills — see [`openspace/skills/README.md`](openspace/skills/README.md).
+
+**③ (Optional) Sync skills from Git repos via skillpull:**
+
+```bash
+pip install skillpull                          # install skillpull CLI
+openspace-skillpull pull @team                 # pull team skills into host skill dir
+openspace-skillpull status                     # show pulled skills with provenance
+```
+
+Or use the MCP tool directly from your agent:
+```
+sync_skills_git(action="pull", repo="@team")   # pull
+sync_skills_git(action="push")                 # push evolved skills back to Git
+```
+
+Skills are pulled into the host agent's skill directory (`OPENSPACE_HOST_SKILL_DIRS`) — no separate directory needed.
 
 > [!NOTE]
 > **Cloud community (optional):** Register at **[open-space.cloud](https://open-space.cloud)** to get a `OPENSPACE_API_KEY`, then add it to the `env` block above. Without it, all local capabilities (task execution, evolution, local skill search) work normally.
@@ -451,7 +470,9 @@ Multi-Layer Tracking: Quality monitoring covers the entire execution stack — f
 **🛡️ Built-in Safeguards**:
 - Confirmation gates reduce false-positive triggers
 - Anti-loop guards prevent runaway evolution cycles
-- Safety checks flag dangerous patterns (prompt injection, credential exfiltration)
+- Safety checks flag dangerous patterns (prompt injection, credential exfiltration, reverse shells, pipe-to-shell)
+- Evolved skills pass safety validation before activation (blocked patterns abort evolution)
+- `OPENSPACE_SAFETY_LEVEL=strict` mode blocks all suspicious patterns, not just confirmed threats
 - Evolved skills are validated before replacing predecessors
 
 **🌐 Collaborative Skill Community**
@@ -467,6 +488,21 @@ A collaborative registry where agents share evolved skills. When one agent evolv
 
 For most users, [Quick Start](#-quick-start) is all you need. For advanced options (environment variables, execution modes, security policies, etc.), see [`openspace/config/README.md`](openspace/config/README.md).
 
+### 🏢 Enterprise / Private Deployment
+
+OpenSpace supports fully private deployment with no cloud dependency:
+
+| Capability | How to Configure |
+|---|---|
+| **LLM** | `OPENSPACE_MODEL=ollama/your-model` + `OLLAMA_API_BASE=http://host:11434` |
+| **Embedding** | `EMBEDDING_API_KEY` + `EMBEDDING_BASE_URL` + `EMBEDDING_MODEL` |
+| **Cloud off** | Leave `OPENSPACE_API_KEY` unset — all local features work normally |
+| **Internal registry** | `OPENSPACE_API_BASE=https://your-internal-api/v1` |
+| **Skill sync** | `openspace-skillpull` CLI for Git-based team skill distribution |
+| **Safety** | `OPENSPACE_SAFETY_LEVEL=strict` blocks all suspicious patterns |
+
+Host agent detection chain: nanobot → openclaw → hermes (auto-detect from config files, or override with `OPENSPACE_HOST`).
+
 ---
 
 <a id="-code-structure"></a>
@@ -479,7 +515,7 @@ For most users, [Quick Start](#-quick-start) is all you need. For advanced optio
 OpenSpace/
 ├── openspace/
 │   ├── tool_layer.py                     # OpenSpace main class & OpenSpaceConfig
-│   ├── mcp_server.py                     # MCP Server (4 tools for your agent)
+│   ├── mcp_server.py                     # MCP Server (5 tools for your agent)
 │   ├── __main__.py                       # CLI entry point (python -m openspace)
 │   ├── dashboard_server.py               # Web dashboard API server
 │   │
@@ -520,7 +556,7 @@ OpenSpace/
 │   │   ├── search.py                     # Hybrid search engine
 │   │   ├── embedding.py                  # Embedding generation for skill search
 │   │   ├── auth.py                       # API key management
-│   │   └── cli/                          # CLI tools (download_skill, upload_skill)
+│   │   └── cli/                          # CLI tools (download_skill, upload_skill, skillpull_sync)
 │   │
 │   ├── 💬 communication/                  # Multi-Channel Communication Gateway
 │   │   ├── gateway.py                    # Message routing, session management, reply dispatch
@@ -531,7 +567,7 @@ OpenSpace/
 │   │   └── types.py                      # ChannelMessage, ChannelSource, SendResult
 │   │
 │   ├── 🔧 platform/                      # Platform abstraction (system info, screenshots)
-│   ├── 🔧 host_detection/                # Auto-detect nanobot / openclaw credentials
+│   ├── 🔧 host_detection/                # Auto-detect nanobot / openclaw / hermes credentials
 │   ├── 🔧 host_skills/                   # SKILL.md definitions for agent integration
 │   │   ├── delegate-task/SKILL.md        # Teaches agent: execute, fix, upload
 │   │   └── skill-discovery/SKILL.md      # Teaches agent: search & discover skills
