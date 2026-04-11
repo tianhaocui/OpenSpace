@@ -22,12 +22,11 @@ SHARED_SKILLS_HUB = Path.home() / ".agents" / "skills"
 
 # Supported LLM providers for interactive setup
 _LLM_PROVIDERS = [
-    ("anthropic", "Anthropic (Claude)", "ANTHROPIC_API_KEY", "anthropic/claude-sonnet-4-20250514"),
+    ("anthropic", "Anthropic (Claude Sonnet)", "ANTHROPIC_API_KEY", "anthropic/claude-sonnet-4-20250514"),
     ("anthropic-opus", "Anthropic (Claude Opus)", "ANTHROPIC_API_KEY", "anthropic/claude-opus-4-20250514"),
-    ("openai", "OpenAI (GPT)", "OPENAI_API_KEY", "openai/gpt-4o"),
+    ("openai", "OpenAI (GPT-4o)", "OPENAI_API_KEY", "openai/gpt-4o"),
     ("deepseek", "DeepSeek", "DEEPSEEK_API_KEY", "deepseek/deepseek-chat"),
-    ("ollama", "Ollama (local)", None, "ollama/qwen3-coder:30b"),
-    ("custom", "Custom (manual config)", None, None),
+    ("custom", "Custom endpoint", None, None),
 ]
 
 MCP_ENV = {
@@ -220,20 +219,14 @@ def configure_llm() -> dict[str, str]:
     env["OPENSPACE_MODEL"] = model
 
     # Ask for API key
-    if key == "ollama":
-        # Ollama doesn't need an API key, but needs base URL
-        base = input("  Ollama URL [http://127.0.0.1:11434]: ").strip()
-        if base:
-            env["OLLAMA_API_BASE"] = base
-        _print("OK", f"LLM: {model} (Ollama local)")
-    elif key == "custom":
+    if key == "custom":
         api_key = input("  API key: ").strip()
         if api_key:
             env["OPENSPACE_LLM_API_KEY"] = api_key
-        api_base = input("  API base URL (optional): ").strip()
+        api_base = input("  API base URL: ").strip()
         if api_base:
             env["OPENSPACE_LLM_API_BASE"] = api_base
-        _print("OK", f"LLM: {model} (custom)")
+        _print("OK", f"LLM: {model}")
     else:
         # Check if key already exists in environment
         existing_key = os.environ.get(env_key_name, "").strip()
