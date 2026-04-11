@@ -20,6 +20,16 @@ from pathlib import Path
 HOST_SKILLS_DIR = Path(__file__).resolve().parent / "host_skills"
 SHARED_SKILLS_HUB = Path.home() / ".agents" / "skills"
 
+# Supported LLM providers for interactive setup
+_LLM_PROVIDERS = [
+    ("anthropic", "Anthropic (Claude)", "ANTHROPIC_API_KEY", "anthropic/claude-sonnet-4-20250514"),
+    ("anthropic-opus", "Anthropic (Claude Opus)", "ANTHROPIC_API_KEY", "anthropic/claude-opus-4-20250514"),
+    ("openai", "OpenAI (GPT)", "OPENAI_API_KEY", "openai/gpt-4o"),
+    ("deepseek", "DeepSeek", "DEEPSEEK_API_KEY", "deepseek/deepseek-chat"),
+    ("ollama", "Ollama (local)", None, "ollama/qwen3-coder:30b"),
+    ("custom", "Custom (manual config)", None, None),
+]
+
 MCP_ENV = {
     "OPENSPACE_CLOUD_ENABLED": "false",
     "MCP_USE_ANONYMIZED_TELEMETRY": "false",
@@ -171,6 +181,84 @@ def copy_host_skills() -> int:
     return copied
 
 
+# --- LLM Configuration ---
+
+def configure_llm() -> dict[str, str]:
+    """Interactive LLM provider selection. Returns env vars to add to MCP_ENV."""
+    env = {}
+
+    print("  LLM Configuration")
+    print("  ─────────────────")
+    for i, (key, label, _, model) in enumerate(_LLM_PROVIDERS, 1):
+        model_hint = f" ({model})" if model else ""
+        print(f"    {i}. {label}{model_hint}")
+
+    print()
+    choice = input("  Choose provider [1]: ").strip()
+    if not choice:
+        choice = "1"
+
+    try:
+        idx = int(choice) - 1
+        if idx < 0 or idx >= len(_LLM_PROVIDERS):
+            idx = 0
+    except ValueError:
+        idx = 0
+
+    key, label, env_key_name, default_model = _LLM_PROVIDERS[idx]
+
+    # Ask for model override
+    if default_model:
+        model_input = input(f"  Model [{default_model}]: ").strip()
+        model = model_input or default_model
+    else:
+        model = input("  Model (e.g. anthropic/claude-sonnet-4-20250514): ").strip()
+        if not model:
+            print("  !! No model specified, skipping LLM config")
+            return env
+
+    env["OPENSPACE_MODEL"] = model
+
+    # Ask for API key
+    if key == "ollama":
+        # Ollama doesn't need an API key, but needs base URL
+        base = input("  Ollama URL [http://127.0.0.1:11434]: ").strip()
+        if base:
+            env["OLLAMA_API_BASE"] = base
+        _print("OK", f"LLM: {model} (Ollama local)")
+    elif key == "custom":
+        api_key = input("  API key: ").strip()
+        if api_key:
+            env["OPENSPACE_LLM_API_KEY"] = api_key
+        api_base = input("  API base URL (optional): ").strip()
+        if api_base:
+            env["OPENSPACE_LLM_API_BASE"] = api_base
+        _print("OK", f"LLM: {model} (custom)")
+    else:
+        # Check if key already exists in environment
+        existing_key = os.environ.get(env_key_name, "").strip()
+        if existing_key:
+            masked = existing_key[:8] + "..." + existing_key[-4:]
+            use_existing = input(f"  {env_key_name} found ({masked}). Use it? [Y/n]: ").strip().lower()
+            if use_existing not in ("n", "no"):
+                env[env_key_name] = f"${{{env_key_name}}}"
+                _print("OK", f"LLM: {model} (using existing {env_key_name})")
+                print()
+                return env
+
+        api_key = input(f"  {env_key_name}: ").strip()
+        if api_key:
+            env[env_key_name] = api_key
+            _print("OK", f"LLM: {model}")
+        else:
+            # Reference env var for runtime resolution
+            env[env_key_name] = f"${{{env_key_name}}}"
+            _print("~", f"LLM: {model} (set {env_key_name} before running)")
+
+    print()
+    return env
+
+
 # --- .mcp.json ---
 
 def write_project_mcp_json() -> bool:
@@ -199,9 +287,17 @@ def write_project_mcp_json() -> bool:
 
 def main():
     skip_skills = "--skip-skills" in sys.argv
+    non_interactive = "--non-interactive" in sys.argv or "--yes" in sys.argv
 
     print("\nOpenSpace Setup\n")
 
+    # Step 1: LLM configuration
+    llm_env = {}
+    if not non_interactive:
+        llm_env = configure_llm()
+    MCP_ENV.update(llm_env)
+
+    # Step 2: Register with host agents
     registered = []
     not_found = []
 
@@ -212,14 +308,18 @@ def main():
         elif result is False and not _has_cmd(name.lower().replace(" ", "")):
             not_found.append(name)
 
+    # Step 3: Copy skills
     if not skip_skills:
         copy_host_skills()
 
+    # Step 4: Write .mcp.json
     write_project_mcp_json()
 
     print()
     if registered:
         print(f"  Ready! OpenSpace registered for: {', '.join(registered)}")
+    if MCP_ENV.get("OPENSPACE_MODEL"):
+        print(f"  Model: {MCP_ENV['OPENSPACE_MODEL']}")
     if not_found:
         print(f"  Not found: {', '.join(not_found)} (install them to enable)")
     print()
