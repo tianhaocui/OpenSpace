@@ -16,8 +16,8 @@ SKILL_EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL", "openai/text-embedding
 SKILL_EMBEDDING_MAX_CHARS = 12_000
 SKILL_EMBEDDING_DIMENSIONS = 1536
 
-_OPENROUTER_BASE = "https://openrouter.ai/api/v1"
-_OPENAI_BASE = "https://api.openai.com/v1"
+_OPENROUTER_BASE = os.environ.get("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
+_OPENAI_BASE = os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1")
 
 
 def resolve_embedding_api() -> Tuple[Optional[str], str]:

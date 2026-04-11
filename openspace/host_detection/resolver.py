@@ -15,7 +15,7 @@ from typing import Any, Dict, Optional
 
 logger = logging.getLogger("openspace.host_detection")
 
-_DEFAULT_MODEL = "openrouter/anthropic/claude-sonnet-4.5"
+_DEFAULT_MODEL = ""
 
 _PROVIDER_NATIVE_ENV_VARS: Dict[str, tuple[str, ...]] = {
     "openrouter": ("OPENROUTER_API_KEY", "OR_API_KEY"),

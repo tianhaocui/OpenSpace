@@ -7,9 +7,6 @@ from functools import wraps
 from pathlib import Path
 from typing import Any
 
-from posthog import Posthog
-from scarf import ScarfEventLogger
-
 from mcp_use.logging import MCP_USE_DEBUG
 from mcp_use.telemetry.events import (
     BaseTelemetryEvent,
@@ -71,9 +68,6 @@ class Telemetry:
 
     USER_ID_PATH = str(get_cache_home() / "mcp_use_3" / "telemetry_user_id")
     VERSION_DOWNLOAD_PATH = str(get_cache_home() / "mcp_use" / "download_version")
-    PROJECT_API_KEY = "phc_lyTtbYwvkdSbrcMQNPiKiiRWrrM1seyKIMjycSvItEI"
-    HOST = "https://eu.i.posthog.com"
-    SCARF_GATEWAY_URL = "https://mcpuse.gateway.scarf.sh/events"
     UNKNOWN_USER_ID = "UNKNOWN_USER_ID"
 
     _curr_user_id = None
@@ -88,40 +82,43 @@ class Telemetry:
         else:
             logger.info("Anonymized telemetry enabled. Set MCP_USE_ANONYMIZED_TELEMETRY=false to disable.")
 
-            # Initialize PostHog
-            try:
-                self._posthog_client = Posthog(
-                    project_api_key=self.PROJECT_API_KEY,
-                    host=self.HOST,
-                    disable_geoip=False,
-                    enable_exception_autocapture=True,
-                )
+            # Resolve config from env vars (no hardcoded keys/URLs in source)
+            posthog_api_key = os.getenv("POSTHOG_API_KEY", "")
+            posthog_host = os.getenv("POSTHOG_HOST", "https://eu.i.posthog.com")
+            scarf_url = os.getenv("SCARF_GATEWAY_URL", "https://mcpuse.gateway.scarf.sh/events")
 
-                # Silence posthog's logging unless debug mode (level 2)
-                if MCP_USE_DEBUG < 2:
-                    posthog_logger = logging.getLogger("posthog")
-                    posthog_logger.disabled = True
+            # Initialize PostHog (lazy import)
+            self._posthog_client = None
+            if posthog_api_key:
+                try:
+                    from posthog import Posthog
+                    self._posthog_client = Posthog(
+                        project_api_key=posthog_api_key,
+                        host=posthog_host,
+                        disable_geoip=False,
+                        enable_exception_autocapture=True,
+                    )
+                    if MCP_USE_DEBUG < 2:
+                        posthog_logger = logging.getLogger("posthog")
+                        posthog_logger.disabled = True
+                except Exception as e:
+                    logger.warning(f"Failed to initialize PostHog telemetry: {e}")
 
-            except Exception as e:
-                logger.warning(f"Failed to initialize PostHog telemetry: {e}")
-                self._posthog_client = None
-
-            # Initialize Scarf
-            try:
-                self._scarf_client = ScarfEventLogger(
-                    endpoint_url=self.SCARF_GATEWAY_URL,
-                    timeout=3.0,
-                    verbose=MCP_USE_DEBUG >= 2,
-                )
-
-                # Silence scarf's logging unless debug mode (level 2)
-                if MCP_USE_DEBUG < 2:
-                    scarf_logger = logging.getLogger("scarf")
-                    scarf_logger.disabled = True
-
-            except Exception as e:
-                logger.warning(f"Failed to initialize Scarf telemetry: {e}")
-                self._scarf_client = None
+            # Initialize Scarf (lazy import)
+            self._scarf_client = None
+            if scarf_url:
+                try:
+                    from scarf import ScarfEventLogger
+                    self._scarf_client = ScarfEventLogger(
+                        endpoint_url=scarf_url,
+                        timeout=3.0,
+                        verbose=MCP_USE_DEBUG >= 2,
+                    )
+                    if MCP_USE_DEBUG < 2:
+                        scarf_logger = logging.getLogger("scarf")
+                        scarf_logger.disabled = True
+                except Exception as e:
+                    logger.warning(f"Failed to initialize Scarf telemetry: {e}")
 
     @property
     def user_id(self) -> str:

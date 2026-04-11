@@ -145,7 +145,7 @@ class VisualAnalyzer:
             visual_model = self._visual_analysis_model or (
                 self._llm_client.model
                 if self._llm_client
-                else "openrouter/anthropic/claude-sonnet-4.5"
+                else ""
             )
             _llm_extra: Dict[str, Any] = {}
             if self._llm_client and visual_model == self._llm_client.model:
