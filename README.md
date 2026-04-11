@@ -154,107 +154,83 @@ On 50 professional tasks (**📈 [GDPVal Economic Benchmark](#-benchmark-gdpval)
 
 ## ⚡ Quick Start
 
-🌐 **Just want to explore?** Browse the [Quick Start](#-quick-start) guide below.
-
 ```bash
 git clone https://github.com/HKUDS/OpenSpace.git && cd OpenSpace
 pip install -e .
-openspace-mcp --help   # verify installation
+openspace-setup          # interactive setup — configures LLM, registers with your agents
 ```
 
+`openspace-setup` will:
+1. Ask you to choose an LLM provider (Anthropic, OpenAI, DeepSeek, or custom endpoint)
+2. Auto-detect your API key from the environment
+3. Register OpenSpace as an MCP server for all installed agents (Claude Code, Codex, Kiro)
+4. Copy host skills to the shared `~/.agents/skills/` hub
+
+That's it. Your agents can now self-evolve skills, execute complex tasks, and share improvements via Git.
+
 > [!TIP]
-> **Slow clone?** The `assets/` folder (~50 MB of images) makes the default clone large. Use this lightweight alternative to skip it:
+> **Already have an API key set?** `openspace-setup` detects it automatically — just press Enter to confirm.
+
+> [!TIP]
+> **Slow clone?** Skip the `assets/` folder (~50 MB):
 > ```bash
 > git clone --filter=blob:none --sparse https://github.com/HKUDS/OpenSpace.git
-> cd OpenSpace
-> git sparse-checkout set '/*' '!assets/'
+> cd OpenSpace && git sparse-checkout set '/*' '!assets/'
 > pip install -e .
 > ```
 
-**Choose your path:**
-- **[For Your Agent](#-for-your-agent)** — Plug OpenSpace into your agent
-- **[Local Dashboard](#-local-dashboard)** — Browse skills, track lineage, compare diffs
+### 🔧 What Gets Configured
 
-### 🤖 For Your Agent
-
-Works with any agent that supports skills (`SKILL.md`) — [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [Codex](https://github.com/openai/codex), [Hermes](https://github.com/anthropics/hermes), [OpenClaw](https://github.com/openclaw/openclaw), [nanobot](https://github.com/HKUDS/nanobot), etc.
-
-**① Add OpenSpace to your agent's MCP config:**
+After setup, your `.mcp.json` looks like:
 
 ```json
 {
   "mcpServers": {
     "openspace": {
       "command": "openspace-mcp",
-      "toolTimeout": 600,
       "env": {
-        "OPENSPACE_HOST_SKILL_DIRS": "/path/to/your/agent/skills",
-        "OPENSPACE_WORKSPACE": "/path/to/OpenSpace"
+        "ANTHROPIC_API_KEY": "${ANTHROPIC_API_KEY}",
+        "OPENSPACE_MODEL": "anthropic/claude-opus-4-20250514",
+        "OPENSPACE_CLOUD_ENABLED": "false",
+        "MCP_USE_ANONYMIZED_TELEMETRY": "false"
       }
     }
   }
 }
 ```
 
-> [!TIP]
-> Credentials (API key, model) are **auto-detected** from your agent's config; you usually don't need to set them manually.
+### 🤖 Available MCP Tools
 
-> [!NOTE]
-> OpenSpace supports 3 launch modes:
-> - **stdio**: keep `command: "openspace-mcp"` in the host config.
-> - **SSE**: start `openspace-mcp --transport sse --host 127.0.0.1 --port 8080`.
-> - **streamable HTTP**: start `openspace-mcp --transport streamable-http --host 127.0.0.1 --port 8081`.
->
-> Common remote endpoints:
-> - SSE endpoint: `http://127.0.0.1:8080/sse`
-> - streamable HTTP endpoint: `http://127.0.0.1:8081/mcp`
->
-> `stdio` is the simplest option. HTTP modes keep OpenSpace as a standalone server, but **host-specific registration syntax** and **host-side timeouts** still apply.
+Once registered, your agent has access to these tools:
 
-**② Copy skills** into your agent's skills directory:
+| Tool | What It Does |
+|---|---|
+| `execute_task` | Delegate a task to OpenSpace — auto-selects skills, executes, records workflow |
+| `search_skills` | Search local skill registry |
+| `fix_skill` | Manually evolve a skill — provide direction, OpenSpace rewrites it |
+| `sync_skills_git` | Pull/push skills from/to Git repos via skillpull |
+
+### 📦 Skill Sync via Git
+
+Share evolved skills with your team using skillpull:
 
 ```bash
-cp -r OpenSpace/openspace/host_skills/delegate-task/ /path/to/your/agent/skills/
-cp -r OpenSpace/openspace/host_skills/skill-discovery/ /path/to/your/agent/skills/
+pip install skillpull                          # install CLI
+skillpull registry git@your-server:team/skills.git  # set team repo
+skillpull --all -f                             # pull all skills
+skillpull push                                 # push evolved skills
 ```
 
-Done. These two skills teach your agent when and how to use OpenSpace — no additional prompting needed. Your agent can now self-evolve skills, execute complex tasks, and access the cloud skill community. You can also add your own custom skills — see [`openspace/skills/README.md`](openspace/skills/README.md).
-
-**③ (Optional) Sync skills from Git repos via skillpull:**
-
-```bash
-pip install skillpull                          # install skillpull CLI
-openspace-skillpull pull @team                 # pull team skills into host skill dir
-openspace-skillpull status                     # show pulled skills with provenance
-```
-
-Or use the MCP tool directly from your agent:
-```
-sync_skills_git(action="pull", repo="@team")   # pull
-sync_skills_git(action="push")                 # push evolved skills back to Git
-```
-
-Skills are pulled into the host agent's skill directory (`OPENSPACE_HOST_SKILL_DIRS`) — no separate directory needed.
-
-📖 Per-agent config (OpenClaw / nanobot / Hermes), all env vars, advanced settings: [`openspace/host_skills/README.md`](openspace/host_skills/README.md)
+Skills auto-push to the team repo after evolution — teammates get improvements on their next `skillpull update`.
 
 ### 📊 Local Dashboard
 
-See how your skills evolve — browse skills, track lineage, compare diffs.
-
-> Requires **Node.js ≥ 20**.
+Browse skills, track evolution lineage, view execution history.
 
 ```bash
-# Terminal 1. Start backend API
-openspace-dashboard --port 7788
-
-# Terminal 2: Start frontend dev server
-cd frontend
-npm install        # only needed once
-npm run dev    
+openspace-dashboard --port 7788    # start backend
+cd frontend && npm install && npm run dev   # start frontend (Node.js ≥ 20)
 ```
-
-📖 **Frontend setup guide**: [`frontend/README.md`](frontend/README.md)
 
 <div align="center">
 <table>
@@ -438,16 +414,16 @@ For most users, [Quick Start](#-quick-start) is all you need. For advanced optio
 
 ### 🏢 Enterprise / Private Deployment
 
-OpenSpace supports fully private deployment with no cloud dependency:
+OpenSpace supports fully private deployment with no cloud dependency. Run `openspace-setup` and all external connections are disabled by default.
 
-| Capability | How to Configure |
+| Capability | Configuration |
 |---|---|
-| **LLM** | `OPENSPACE_MODEL=ollama/your-model` + `OLLAMA_API_BASE=http://host:11434` |
-| **Embedding** | `EMBEDDING_API_KEY` + `EMBEDDING_BASE_URL` + `EMBEDDING_MODEL` |
-| **Skill sync** | `openspace-skillpull` CLI for Git-based team skill distribution |
+| **LLM** | Set during `openspace-setup` — Anthropic, OpenAI, DeepSeek, or custom endpoint |
+| **Embedding** | Local model by default. Optional: `EMBEDDING_BASE_URL` + `EMBEDDING_API_KEY` |
+| **Skill sync** | Git-based via `skillpull` — point at your internal Git repo |
 | **Safety** | `OPENSPACE_SAFETY_LEVEL=strict` blocks all suspicious patterns |
-
-Host agent detection chain: nanobot → openclaw → hermes (auto-detect from config files, or override with `OPENSPACE_HOST`).
+| **Cloud** | Disabled by default (`OPENSPACE_CLOUD_ENABLED=false`) |
+| **Telemetry** | Disabled by default (`MCP_USE_ANONYMIZED_TELEMETRY=false`) |
 
 ---
 
