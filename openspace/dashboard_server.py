@@ -297,8 +297,13 @@ def _serialize_skill(record: SkillRecord, *, include_recent_analyses: bool = Fal
     if not include_recent_analyses:
         payload.pop("recent_analyses", None)
 
-    path = payload.get("path", "")
+    # Strip heavy lineage fields for list endpoints (only needed in detail view)
     lineage = payload.get("lineage") or {}
+    if isinstance(lineage, dict) and not include_recent_analyses:
+        lineage.pop("content_diff", None)
+        lineage.pop("content_snapshot", None)
+
+    path = payload.get("path", "")
     payload.update(
         {
             "skill_dir": str(Path(path).parent) if path else "",
