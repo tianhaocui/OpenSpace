@@ -100,7 +100,11 @@ def build_llm_kwargs(model: str) -> tuple[str, Dict[str, Any]]:
 
     # Default model fallback
     if not resolved_model:
-        resolved_model = "openrouter/anthropic/claude-sonnet-4.5"
+        logger.warning(
+            "No LLM model configured. Set OPENSPACE_LLM_API_BASE + model, "
+            "configure a host agent (~/.nanobot/config.json), or set a "
+            "provider-specific env var (e.g. OPENROUTER_API_KEY)."
+        )
 
     if kwargs:
         safe = {

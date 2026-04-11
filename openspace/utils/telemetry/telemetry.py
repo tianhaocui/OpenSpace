@@ -7,9 +7,6 @@ from functools import wraps
 from pathlib import Path
 from typing import Any
 
-from posthog import Posthog
-from scarf import ScarfEventLogger
-
 from mcp_use.logging import MCP_USE_DEBUG
 from mcp_use.telemetry.events import (
     BaseTelemetryEvent,
@@ -66,7 +63,8 @@ def get_cache_home() -> Path:
 class Telemetry:
     """
     Service for capturing anonymized telemetry data via PostHog and Scarf.
-    If the environment variable `MCP_USE_ANONYMIZED_TELEMETRY=false`, telemetry will be disabled.
+    Telemetry is disabled by default for private deployment.
+    Set ``MCP_USE_ANONYMIZED_TELEMETRY=true`` to opt in.
     """
 
     USER_ID_PATH = str(get_cache_home() / "mcp_use_3" / "telemetry_user_id")
@@ -79,48 +77,64 @@ class Telemetry:
     _curr_user_id = None
 
     def __init__(self):
-        telemetry_disabled = os.getenv("MCP_USE_ANONYMIZED_TELEMETRY", "true").lower() == "false"
+        telemetry_disabled = os.getenv("MCP_USE_ANONYMIZED_TELEMETRY", "false").lower() != "true"
 
         if telemetry_disabled:
             self._posthog_client = None
             self._scarf_client = None
-            logger.debug("Telemetry disabled")
+            logger.debug("Telemetry disabled (default). Set MCP_USE_ANONYMIZED_TELEMETRY=true to enable.")
         else:
-            logger.info("Anonymized telemetry enabled. Set MCP_USE_ANONYMIZED_TELEMETRY=false to disable.")
+            logger.info("Anonymized telemetry enabled (MCP_USE_ANONYMIZED_TELEMETRY=true).")
+
+            # Lazy import to avoid network activity on module load
+            try:
+                from posthog import Posthog
+            except ImportError:
+                Posthog = None
+            try:
+                from scarf import ScarfEventLogger
+            except ImportError:
+                ScarfEventLogger = None
 
             # Initialize PostHog
-            try:
-                self._posthog_client = Posthog(
-                    project_api_key=self.PROJECT_API_KEY,
-                    host=self.HOST,
-                    disable_geoip=False,
-                    enable_exception_autocapture=True,
-                )
+            if Posthog:
+                try:
+                    self._posthog_client = Posthog(
+                        project_api_key=self.PROJECT_API_KEY,
+                        host=self.HOST,
+                        disable_geoip=False,
+                        enable_exception_autocapture=True,
+                    )
 
-                # Silence posthog's logging unless debug mode (level 2)
-                if MCP_USE_DEBUG < 2:
-                    posthog_logger = logging.getLogger("posthog")
-                    posthog_logger.disabled = True
+                    # Silence posthog's logging unless debug mode (level 2)
+                    if MCP_USE_DEBUG < 2:
+                        posthog_logger = logging.getLogger("posthog")
+                        posthog_logger.disabled = True
 
-            except Exception as e:
-                logger.warning(f"Failed to initialize PostHog telemetry: {e}")
+                except Exception as e:
+                    logger.warning(f"Failed to initialize PostHog telemetry: {e}")
+                    self._posthog_client = None
+            else:
                 self._posthog_client = None
 
             # Initialize Scarf
-            try:
-                self._scarf_client = ScarfEventLogger(
-                    endpoint_url=self.SCARF_GATEWAY_URL,
-                    timeout=3.0,
-                    verbose=MCP_USE_DEBUG >= 2,
-                )
+            if ScarfEventLogger:
+                try:
+                    self._scarf_client = ScarfEventLogger(
+                        endpoint_url=self.SCARF_GATEWAY_URL,
+                        timeout=3.0,
+                        verbose=MCP_USE_DEBUG >= 2,
+                    )
 
-                # Silence scarf's logging unless debug mode (level 2)
-                if MCP_USE_DEBUG < 2:
-                    scarf_logger = logging.getLogger("scarf")
-                    scarf_logger.disabled = True
+                    # Silence scarf's logging unless debug mode (level 2)
+                    if MCP_USE_DEBUG < 2:
+                        scarf_logger = logging.getLogger("scarf")
+                        scarf_logger.disabled = True
 
-            except Exception as e:
-                logger.warning(f"Failed to initialize Scarf telemetry: {e}")
+                except Exception as e:
+                    logger.warning(f"Failed to initialize Scarf telemetry: {e}")
+                    self._scarf_client = None
+            else:
                 self._scarf_client = None
 
     @property

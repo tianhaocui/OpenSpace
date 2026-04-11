@@ -58,7 +58,7 @@ class OpenSpaceClient:
         if not auth_headers:
             raise CloudError(
                 "No OPENSPACE_API_KEY configured. "
-                "Register at https://open-space.cloud to obtain a key."
+                "Set OPENSPACE_API_KEY env var or configure it in your host agent MCP env block."
             )
         self._headers = {
             "User-Agent": self._DEFAULT_UA,

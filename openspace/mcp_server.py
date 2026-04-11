@@ -592,32 +592,38 @@ async def search_skills(
         _AUTO_IMPORT_MAX = 3
         import_summary: List[Dict[str, Any]] = []
         if auto_import:
-            cloud_results = [
-                r for r in results
-                if r.get("source") == "cloud"
-                and r.get("visibility", "public") == "public"
-                and r.get("skill_id")
-            ][:_AUTO_IMPORT_MAX]
-            for cr in cloud_results:
-                try:
-                    imp_result = await _do_import_cloud_skill(skill_id=cr["skill_id"])
-                    status = imp_result.get("status", "error")
-                    import_summary.append({
-                        "skill_id": cr["skill_id"],
-                        "name": cr.get("name", ""),
-                        "import_status": status,
-                        "local_path": imp_result.get("local_path", ""),
-                    })
-                    if status in ("success", "already_exists"):
-                        cr["auto_imported"] = True
-                        cr["local_path"] = imp_result.get("local_path", "")
-                except Exception as imp_err:
-                    logger.warning(f"auto_import failed for {cr['skill_id']}: {imp_err}")
-                    import_summary.append({
-                        "skill_id": cr["skill_id"],
-                        "import_status": "error",
-                        "error": str(imp_err),
-                    })
+            # Skip auto-import when cloud is disabled or no API key configured
+            from openspace.cloud.auth import is_cloud_enabled, get_openspace_auth
+            _cloud_ok = is_cloud_enabled() and bool(get_openspace_auth()[0])
+            if not _cloud_ok:
+                logger.debug("auto_import skipped: cloud disabled or no API key")
+            else:
+                cloud_results = [
+                    r for r in results
+                    if r.get("source") == "cloud"
+                    and r.get("visibility", "public") == "public"
+                    and r.get("skill_id")
+                ][:_AUTO_IMPORT_MAX]
+                for cr in cloud_results:
+                    try:
+                        imp_result = await _do_import_cloud_skill(skill_id=cr["skill_id"])
+                        status = imp_result.get("status", "error")
+                        import_summary.append({
+                            "skill_id": cr["skill_id"],
+                            "name": cr.get("name", ""),
+                            "import_status": status,
+                            "local_path": imp_result.get("local_path", ""),
+                        })
+                        if status in ("success", "already_exists"):
+                            cr["auto_imported"] = True
+                            cr["local_path"] = imp_result.get("local_path", "")
+                    except Exception as imp_err:
+                        logger.warning(f"auto_import failed for {cr['skill_id']}: {imp_err}")
+                        import_summary.append({
+                            "skill_id": cr["skill_id"],
+                            "import_status": "error",
+                            "error": str(imp_err),
+                        })
 
         output: Dict[str, Any] = {"results": results, "count": len(results)}
         if import_summary:

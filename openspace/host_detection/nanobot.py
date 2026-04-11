@@ -12,28 +12,45 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger("openspace.host_detection")
 
-PROVIDER_REGISTRY: List[tuple] = [
-    # Gateways
-    ("openrouter",  ("openrouter",),                  "https://openrouter.ai/api/v1"),
-    ("aihubmix",    ("aihubmix",),                    "https://aihubmix.com/v1"),
-    ("siliconflow", ("siliconflow",),                 "https://api.siliconflow.cn/v1"),
-    ("volcengine",  ("volcengine", "volces", "ark"),  "https://ark.cn-beijing.volces.com/api/v3"),
-    # Standard providers
-    ("anthropic",   ("anthropic", "claude"),           ""),
-    ("openai",      ("openai", "gpt"),                 ""),
-    ("deepseek",    ("deepseek",),                     ""),
-    ("gemini",      ("gemini",),                       ""),
-    ("zhipu",       ("zhipu", "glm", "zai"),           ""),
-    ("dashscope",   ("qwen", "dashscope"),             ""),
-    ("moonshot",    ("moonshot", "kimi"),               "https://api.moonshot.ai/v1"),
-    ("minimax",     ("minimax",),                      "https://api.minimax.io/v1"),
-    ("groq",        ("groq",),                         ""),
-]
+
+def _build_provider_registry() -> List[tuple]:
+    """Build provider registry with env-var overridable base URLs.
+
+    Each gateway URL can be overridden via ``<PROVIDER>_BASE_URL`` env var,
+    e.g. ``OPENROUTER_BASE_URL``, ``AIHUBMIX_BASE_URL``, etc.
+    """
+    _defaults = [
+        # Gateways
+        ("openrouter",  ("openrouter",),                  "https://openrouter.ai/api/v1"),
+        ("aihubmix",    ("aihubmix",),                    "https://aihubmix.com/v1"),
+        ("siliconflow", ("siliconflow",),                 "https://api.siliconflow.cn/v1"),
+        ("volcengine",  ("volcengine", "volces", "ark"),  "https://ark.cn-beijing.volces.com/api/v3"),
+        # Standard providers
+        ("anthropic",   ("anthropic", "claude"),           ""),
+        ("openai",      ("openai", "gpt"),                 ""),
+        ("deepseek",    ("deepseek",),                     ""),
+        ("gemini",      ("gemini",),                       ""),
+        ("zhipu",       ("zhipu", "glm", "zai"),           ""),
+        ("dashscope",   ("qwen", "dashscope"),             ""),
+        ("moonshot",    ("moonshot", "kimi"),               "https://api.moonshot.ai/v1"),
+        ("minimax",     ("minimax",),                      "https://api.minimax.io/v1"),
+        ("groq",        ("groq",),                         ""),
+    ]
+    result = []
+    for name, keywords, default_base in _defaults:
+        env_key = f"{name.upper()}_BASE_URL"
+        base = os.environ.get(env_key, "").strip() or default_base
+        result.append((name, keywords, base))
+    return result
+
+
+PROVIDER_REGISTRY: List[tuple] = _build_provider_registry()
 
 NANOBOT_CONFIG_PATH = Path.home() / ".nanobot" / "config.json"
 
