@@ -1,7 +1,7 @@
 {
   "nav": {
-    "dashboard": "仪表盘",
-    "skills": "Skills",
+    "dashboard": "总览",
+    "skills": "技能",
     "workflows": "工作流"
   },
   "common": {

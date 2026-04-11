@@ -396,11 +396,26 @@ async def execute_task(
         if skill_dirs:
             await _auto_register_skill_dirs(skill_dirs)
 
+        # Determine where CAPTURED skills should be written.
+        # Prefer the explicit skill_dirs parameter (= calling host agent's dir),
+        # then fall back to the first env-based host skill dir.
+        capture_skill_dir: str | None = None
+        if skill_dirs:
+            capture_skill_dir = skill_dirs[0]
+        elif host_skill_dirs_raw:
+            first_env = next(
+                (d.strip() for d in host_skill_dirs_raw.split(",") if d.strip()),
+                None,
+            )
+            if first_env:
+                capture_skill_dir = first_env
+
         # Execute
         result = await openspace.execute(
             task=task,
             workspace_dir=workspace_dir,
             max_iterations=max_iterations,
+            capture_skill_dir=capture_skill_dir,
         )
 
         formatted = _format_task_result(result)

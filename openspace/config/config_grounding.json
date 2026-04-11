@@ -19,7 +19,7 @@
     "eager_sessions": false,
     "sse_read_timeout": 300.0,
     "check_dependencies": true,
-    "auto_install": true
+    "auto_install": false
   },
   "gui": {
     "mode": "local",
