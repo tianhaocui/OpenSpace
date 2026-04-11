@@ -118,7 +118,11 @@ class FeishuAdapter(BaseChannelAdapter):
         if not self.config.app_id or not self.config.app_secret:
             logger.error("Feishu adapter missing app_id/app_secret")
             return False
-        domain = FEISHU_DOMAIN if self.config.domain != "lark" else LARK_DOMAIN
+        # Use custom API base URL for private deployment, or standard SaaS domain
+        if self.config.api_base_url:
+            domain = self.config.api_base_url
+        else:
+            domain = FEISHU_DOMAIN if self.config.domain != "lark" else LARK_DOMAIN
         self._client = (
             lark.Client.builder()
             .app_id(self.config.app_id)

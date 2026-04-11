@@ -102,6 +102,9 @@ class AnthropicGUIClient:
         
         # Backup API key for failover
         self.backup_api_key = backup_api_key or os.environ.get("ANTHROPIC_API_KEY_BACKUP")
+
+        # Custom base URL for local proxy / private deployment
+        self.base_url = os.environ.get("ANTHROPIC_BASE_URL")
         
         # Only support anthropic provider
         if provider != "anthropic":
@@ -141,7 +144,10 @@ class AnthropicGUIClient:
     def _create_client(self, api_key: Optional[str] = None):
         """Create Anthropic client (only supports anthropic provider)."""
         key = api_key or self.api_key
-        return Anthropic(api_key=key, max_retries=4)
+        kwargs = {"api_key": key, "max_retries": 4}
+        if self.base_url:
+            kwargs["base_url"] = self.base_url
+        return Anthropic(**kwargs)
     
     def _resize_screenshot(self, screenshot_bytes: bytes) -> bytes:
         """
