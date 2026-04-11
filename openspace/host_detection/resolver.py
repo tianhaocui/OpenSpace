@@ -2,6 +2,9 @@
 
 Resolves the model name and litellm kwargs for OpenSpace's LLM client,
 and assembles grounding config from env-var overrides.
+
+All credentials come from environment variables (set by the AI tool
+via .mcp.json env, or from openspace/.env).
 """
 
 from __future__ import annotations
@@ -14,8 +17,6 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 logger = logging.getLogger("openspace.host_detection")
-
-_DEFAULT_MODEL = ""
 
 _PROVIDER_NATIVE_ENV_VARS: Dict[str, tuple[str, ...]] = {
     "openrouter": ("OPENROUTER_API_KEY", "OR_API_KEY"),
@@ -33,6 +34,23 @@ _PROVIDER_NATIVE_ENV_VARS: Dict[str, tuple[str, ...]] = {
     "groq": ("GROQ_API_KEY",),
 }
 
+# Provider keywords for model name → provider inference
+_PROVIDER_KEYWORDS: Dict[str, tuple[str, ...]] = {
+    "openrouter": ("openrouter",),
+    "aihubmix": ("aihubmix",),
+    "siliconflow": ("siliconflow",),
+    "volcengine": ("volcengine", "volces", "ark"),
+    "anthropic": ("anthropic", "claude"),
+    "openai": ("openai", "gpt"),
+    "deepseek": ("deepseek",),
+    "gemini": ("gemini",),
+    "zhipu": ("zhipu", "glm", "zai"),
+    "dashscope": ("qwen", "dashscope"),
+    "moonshot": ("moonshot", "kimi"),
+    "minimax": ("minimax",),
+    "groq": ("groq",),
+}
+
 _env_loaded = False
 
 
@@ -40,11 +58,8 @@ def _load_env_once() -> None:
     """Load .env files once per process.
 
     Search order (first-loaded wins for each key):
-      1. ``openspace/.env``  (package root — works regardless of CWD)
+      1. ``openspace/.env``  (package root)
       2. ``CWD/.env``        (project-level fallback)
-
-    Uses ``override=False`` so env vars already in the process (e.g. set
-    by the host agent or the shell) are never overwritten.
     """
     global _env_loaded
     if _env_loaded:
@@ -90,38 +105,31 @@ def _ensure_local_no_proxy() -> None:
 
 
 def _infer_provider_name(model: str) -> Optional[str]:
-    """Infer the provider name from a model string using PROVIDER_REGISTRY."""
-    from openspace.host_detection.nanobot import PROVIDER_REGISTRY
-
+    """Infer the provider name from a model string."""
     model_lower = (model or "").lower()
     model_prefix = model_lower.split("/", 1)[0] if "/" in model_lower else ""
     normalized_prefix = model_prefix.replace("-", "_")
 
-    for name, _keywords, _default_base in PROVIDER_REGISTRY:
-        if model_prefix and normalized_prefix == name:
-            return name
+    # Prefix match (e.g. "anthropic/claude-sonnet-4.5" → "anthropic")
+    if model_prefix and normalized_prefix in _PROVIDER_NATIVE_ENV_VARS:
+        return normalized_prefix
 
-    for name, keywords, _default_base in PROVIDER_REGISTRY:
-        if any(keyword in model_lower for keyword in keywords):
+    # Keyword match
+    for name, keywords in _PROVIDER_KEYWORDS.items():
+        if any(kw in model_lower for kw in keywords):
             return name
 
     return None
 
 
 def _has_provider_native_env(model: str) -> bool:
-    """Check if a provider-native API key (e.g. OPENROUTER_API_KEY) exists.
-
-    When True, the key from .env or the process environment is sufficient
-    for litellm to authenticate — no need to read nanobot / host config.
-    """
+    """Check if a provider-native API key exists in the environment."""
     provider = _infer_provider_name(model)
     if not provider:
         return False
-
     env_names = _PROVIDER_NATIVE_ENV_VARS.get(provider)
     if not env_names:
         return False
-
     return bool(_pick_first_env(env_names))
 
 
@@ -137,22 +145,10 @@ def build_llm_kwargs(model: str) -> tuple[str, Dict[str, Any]]:
         OPENSPACE_LLM_EXTRA_HEADERS   → litellm ``extra_headers`` (JSON string)
         OPENSPACE_LLM_CONFIG          → arbitrary litellm kwargs (JSON string)
 
-    Tier 2 — Provider-native env vars already present in the process
-    (including values loaded from ``openspace/.env``)::
+    Tier 2 — Provider-native env vars (set by the AI tool via .mcp.json
+    env, or loaded from ``openspace/.env``)::
 
         OPENROUTER_API_KEY / OPENAI_API_KEY / ANTHROPIC_API_KEY / ...
-
-        These take precedence over host-agent config so local/standalone
-        launches are not hijacked by unrelated host config files.
-
-    Tier 3 — Host-agent config file fallback (only when Tier 1+2 absent)::
-
-        If ``OPENSPACE_HOST`` is set, only that host is tried.
-        Otherwise auto-detection chain:
-
-        nanobot  → ``~/.nanobot/config.json``
-        openclaw → ``~/.openclaw/openclaw.json``
-        hermes   → ``~/.hermes/config.yaml``
 
     Returns:
         ``(resolved_model, llm_kwargs_dict)``
@@ -163,81 +159,7 @@ def build_llm_kwargs(model: str) -> tuple[str, Dict[str, Any]]:
     resolved_model = model
     source = "inherited env"
 
-    has_explicit_llm_override = bool(
-        os.environ.get("OPENSPACE_LLM_API_BASE")
-        or os.environ.get("OPENSPACE_LLM_API_KEY")
-    )
-    provider_native_env_used = _has_provider_native_env(
-        resolved_model or _DEFAULT_MODEL
-    )
-
-    # --- Tier 3: host config fallback (only when no local keys) ---
-    host_config = None
-    host_source = None
-    if not has_explicit_llm_override and not provider_native_env_used:
-        explicit_host = os.environ.get("OPENSPACE_HOST", "").strip().lower()
-
-        if explicit_host:
-            # Explicit host selection — skip auto-detection chain
-            if explicit_host == "nanobot":
-                from openspace.host_detection.nanobot import try_read_nanobot_config
-                host_config = try_read_nanobot_config(model)
-                if host_config:
-                    host_source = "nanobot config"
-            elif explicit_host == "openclaw":
-                from openspace.host_detection.openclaw import try_read_openclaw_config
-                host_config = try_read_openclaw_config(model)
-                if host_config:
-                    host_source = "openclaw config"
-            elif explicit_host == "hermes":
-                from openspace.host_detection.hermes import try_read_hermes_config
-                host_config = try_read_hermes_config(model)
-                if host_config:
-                    host_source = "hermes config"
-            else:
-                logger.warning("Unknown OPENSPACE_HOST=%r, falling back to auto-detection", explicit_host)
-                explicit_host = ""  # fall through to auto-detection
-
-        if not explicit_host:
-            # Auto-detection chain: nanobot → openclaw → hermes
-            from openspace.host_detection.nanobot import try_read_nanobot_config
-            host_config = try_read_nanobot_config(model)
-            if host_config:
-                host_source = "nanobot config"
-            else:
-                from openspace.host_detection.openclaw import try_read_openclaw_config
-                host_config = try_read_openclaw_config(model)
-                if host_config:
-                    host_source = "openclaw config"
-                else:
-                    from openspace.host_detection.hermes import try_read_hermes_config
-                    host_config = try_read_hermes_config(model)
-                    if host_config:
-                        host_source = "hermes config"
-
-    if host_config:
-        host_model = host_config.pop("_model", None)
-        forced_provider = host_config.pop("_forced_provider", None)
-        if not resolved_model and host_model:
-            resolved_model = host_model
-
-        _GATEWAY_PROVIDERS = {"openrouter", "aihubmix", "siliconflow"}
-        if (
-            forced_provider
-            and forced_provider in _GATEWAY_PROVIDERS
-            and resolved_model
-            and not resolved_model.lower().startswith(f"{forced_provider}/")
-            and not (model and has_explicit_llm_override)
-        ):
-            resolved_model = f"{forced_provider}/{resolved_model}"
-            logger.info(
-                "Prepended gateway prefix: model=%r (forced_provider=%s)",
-                resolved_model, forced_provider,
-            )
-        kwargs.update(host_config)
-        source = host_source or "host config"
-
-    # --- Tier 1: explicit env vars override everything ---
+    # --- Tier 1: explicit env vars ---
     api_key = os.environ.get("OPENSPACE_LLM_API_KEY")
     if api_key:
         kwargs["api_key"] = api_key
@@ -266,13 +188,19 @@ def build_llm_kwargs(model: str) -> tuple[str, Dict[str, Any]]:
         except json.JSONDecodeError:
             logger.warning("Invalid JSON in OPENSPACE_LLM_CONFIG: %r", llm_config_raw)
 
-    # Default model fallback
+    # Model from env
     if not resolved_model:
-        resolved_model = _DEFAULT_MODEL
+        resolved_model = os.environ.get("OPENSPACE_MODEL", "").strip()
 
-    # Ollama models must use the Ollama-native API base, even when unrelated
-    # OPENSPACE_LLM_* env vars are present for a different provider.
-    if resolved_model.lower().startswith("ollama/"):
+    # Warn if no model configured
+    if not resolved_model:
+        logger.warning(
+            "No LLM model configured. Set OPENSPACE_MODEL or pass model via "
+            "the AI tool's .mcp.json env."
+        )
+
+    # Ollama special handling
+    if resolved_model and resolved_model.lower().startswith("ollama/"):
         ollama_base = os.environ.get("OLLAMA_API_BASE", "").strip() or "http://127.0.0.1:11434"
         _ensure_local_no_proxy()
         kwargs["api_base"] = ollama_base.rstrip("/")
@@ -280,26 +208,18 @@ def build_llm_kwargs(model: str) -> tuple[str, Dict[str, Any]]:
         kwargs.pop("extra_headers", None)
         source = "ollama runtime"
 
-    # Provider-specific adjustments for litellm routing
+    # MiniMax compat
     if resolved_model and "minimax" in resolved_model.lower():
         final_key = kwargs.get("api_key")
         final_base = kwargs.get("api_base", "")
-
         if final_key:
             os.environ.setdefault("MINIMAX_API_KEY", final_key)
         if final_base:
             os.environ.setdefault("MINIMAX_API_BASE", final_base)
-
-        if (
-            resolved_model.lower().startswith("minimax/")
-            and "minimaxi.com" in final_base
-        ):
+        if resolved_model.lower().startswith("minimax/") and "minimaxi.com" in final_base:
             original = resolved_model
             resolved_model = "openai/" + resolved_model.split("/", 1)[1]
-            logger.info(
-                "Switched model prefix for minimaxi.com compat: %s -> %s",
-                original, resolved_model,
-            )
+            logger.info("Switched model prefix for minimaxi.com compat: %s -> %s", original, resolved_model)
 
     if kwargs:
         safe = {
@@ -307,14 +227,10 @@ def build_llm_kwargs(model: str) -> tuple[str, Dict[str, Any]]:
             for k, v in kwargs.items()
         }
         logger.info("LLM kwargs resolved (source=%s): %s", source, safe)
-    elif provider_native_env_used:
-        logger.info(
-            "LLM credentials resolved from provider-native env for model=%r",
-            resolved_model,
-        )
+    elif _has_provider_native_env(resolved_model or ""):
+        logger.info("LLM credentials resolved from provider-native env for model=%r", resolved_model)
 
     return resolved_model, kwargs
-
 
 def build_grounding_config_path() -> Optional[str]:
     """Resolve grounding config: inline JSON > file path > None.
@@ -322,9 +238,6 @@ def build_grounding_config_path() -> Optional[str]:
     Supports:
       * ``OPENSPACE_CONFIG_JSON``  — inline JSON string (written to a temp file)
       * ``OPENSPACE_CONFIG_PATH``  — path to a JSON config file
-
-    Granular env-var overrides (``OPENSPACE_SHELL_*``, ``OPENSPACE_SKILLS_*``,
-    etc.) are merged before writing.
 
     Returns:
         Path to the resolved config file, or None.

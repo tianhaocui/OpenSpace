@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "openspace": {
+      "command": "openspace-mcp",
+      "env": {
+        "OPENSPACE_CLOUD_ENABLED": "false",
+        "MCP_USE_ANONYMIZED_TELEMETRY": "false"
+      }
+    }
+  }
+}

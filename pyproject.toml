@@ -69,6 +69,7 @@ Repository = "https://github.com/HKUDS/OpenSpace"
 openspace-mcp = "openspace.mcp_server:run_mcp_server"
 openspace-server = "openspace.local_server.main:main"
 openspace-dashboard = "openspace.dashboard_server:main"
+openspace-setup = "openspace.setup:main"
 
 [tool.setuptools]
 packages = {find = {where = ["."], include = ["openspace*"]}}
