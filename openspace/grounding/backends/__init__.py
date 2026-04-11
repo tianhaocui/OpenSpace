@@ -8,12 +8,6 @@ def _lazy_import_provider(provider_name: str):
     elif provider_name == 'shell':
         from .shell.provider import ShellProvider
         return ShellProvider
-    elif provider_name == 'web':
-        from .web.provider import WebProvider
-        return WebProvider
-    elif provider_name == 'gui':
-        from .gui.provider import GUIProvider
-        return GUIProvider
     else:
         raise ImportError(f"Unknown provider: {provider_name}")
 
@@ -22,9 +16,9 @@ class _ProviderRegistry:
     """Lazy provider registry"""
     def __getitem__(self, key):
         return _lazy_import_provider(key)
-    
+
     def __contains__(self, key):
-        return key in ['mcp', 'shell', 'web', 'gui']
+        return key in ['mcp', 'shell']
 
 BACKEND_PROVIDERS = _ProviderRegistry()
 
