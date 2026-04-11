@@ -58,3 +58,22 @@ class TestNoHardcodedModels:
         import inspect
         source = inspect.getsource(client_mod)
         assert "openrouter/anthropic/claude-sonnet-4.5" not in source
+
+
+class TestHostDetectionRemoved:
+    """Verify host agent detection modules are removed."""
+
+    def test_no_hermes_module(self):
+        import importlib
+        with pytest.raises(ModuleNotFoundError):
+            importlib.import_module("openspace.host_detection.hermes")
+
+    def test_no_nanobot_module(self):
+        import importlib
+        with pytest.raises(ModuleNotFoundError):
+            importlib.import_module("openspace.host_detection.nanobot")
+
+    def test_no_openclaw_module(self):
+        import importlib
+        with pytest.raises(ModuleNotFoundError):
+            importlib.import_module("openspace.host_detection.openclaw")

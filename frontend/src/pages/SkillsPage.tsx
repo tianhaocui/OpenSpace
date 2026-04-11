@@ -89,37 +89,37 @@ export default function SkillsPage() {
     <div className="p-6 space-y-6">
       <div className="flex items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold font-serif">Skill classes</h1>
+          <h1 className="text-3xl font-bold font-serif">技能分类</h1>
         </div>
         <div className="flex gap-3 items-center">
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search by name, id, description, tag, or origin"
+            placeholder="搜索名称、ID、描述、标签或来源"
             className="px-3 py-2 min-w-[320px]"
           />
           <select value={sort} onChange={(event) => setSort(event.target.value as typeof sort)} className="px-3 py-2">
-            <option value="score">Sort by best score</option>
-            <option value="updated">Sort by updated time</option>
-            <option value="name">Sort by name</option>
+            <option value="score">按最高评分排序</option>
+            <option value="updated">按更新时间排序</option>
+            <option value="name">按名称排序</option>
           </select>
         </div>
       </div>
 
       {stats ? (
         <section className="metrics-row">
-          <MetricCard label="Skill Classes" value={skillClasses.length} hint={`Versions: ${stats.total_skills_all}`} />
-          <MetricCard label="Active Versions" value={totalActiveVersions} hint={`With activity: ${stats.skills_with_activity}`} />
-          <MetricCard label="Average Best Score" value={averageBestScore.toFixed(1)} hint="Best node score per class" />
-          <MetricCard label="Selections" value={stats.total_selections} hint={`Completions: ${stats.total_completions}`} />
+          <MetricCard label="技能分类" value={skillClasses.length} hint={`版本数: ${stats.total_skills_all}`} />
+          <MetricCard label="活跃版本" value={totalActiveVersions} hint={`有活动记录: ${stats.skills_with_activity}`} />
+          <MetricCard label="平均最高评分" value={averageBestScore.toFixed(1)} hint="每个分类的最佳节点评分" />
+          <MetricCard label="选用次数" value={stats.total_selections} hint={`完成次数: ${stats.total_completions}`} />
         </section>
       ) : null}
 
-      {loading ? <div className="text-sm text-muted">Loading skills…</div> : null}
+      {loading ? <div className="text-sm text-muted">加载技能中…</div> : null}
       {error ? <div className="text-sm text-danger">{error}</div> : null}
 
       {!loading && !error && filteredClasses.length === 0 ? (
-        <EmptyState title="No skills match" description="Try another keyword, or execute tasks so new skill telemetry lands in SQLite." />
+        <EmptyState title="无匹配技能" description="换个关键词试试，或执行任务让新的技能数据入库。" />
       ) : null}
 
       {!loading && !error && filteredClasses.length > 0 ? (
@@ -137,18 +137,18 @@ export default function SkillsPage() {
                 </div>
                 <div className="text-right shrink-0">
                   <div className="text-3xl font-bold font-serif leading-none">{skillClass.best_score.toFixed(1)}</div>
-                  <div className="text-xs text-muted">best score</div>
+                  <div className="text-xs text-muted">最高评分</div>
                 </div>
               </div>
 
               <div className="text-sm text-muted">
-                {truncate(skillClass.representative.description || 'No class description', 160)}
+                {truncate(skillClass.representative.description || '暂无分类描述', 160)}
               </div>
 
               <div className="grid grid-cols-4 gap-3 text-xs text-muted">
-                <div>{skillClass.version_count} versions</div>
-                <div>{skillClass.active_count} active</div>
-                <div>{skillClass.total_selections} selections</div>
+                <div>{skillClass.version_count} 个版本</div>
+                <div>{skillClass.active_count} 个活跃</div>
+                <div>{skillClass.total_selections} 次选用</div>
                 <div>{formatDate(skillClass.latest_updated)}</div>
               </div>
 
@@ -160,7 +160,7 @@ export default function SkillsPage() {
                   <span key={`${skillClass.class_id}-${tag}`} className="tag px-2 py-1">{tag}</span>
                 ))}
                 {skillClass.tags.length > 5 ? (
-                  <span className="tag px-2 py-1">+{skillClass.tags.length - 5} tags</span>
+                  <span className="tag px-2 py-1">+{skillClass.tags.length - 5} 个标签</span>
                 ) : null}
               </div>
             </Link>

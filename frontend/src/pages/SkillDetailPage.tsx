@@ -52,7 +52,7 @@ export default function SkillDetailPage() {
         }
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Failed to load skill class');
+          setError(err instanceof Error ? err.message : '加载技能分类失败');
         }
       } finally {
         if (!cancelled) {
@@ -97,7 +97,7 @@ export default function SkillDetailPage() {
       } catch (err) {
         if (!cancelled) {
           setSelectedVersion(null);
-          setDrawerError(err instanceof Error ? err.message : 'Failed to load selected version');
+          setDrawerError(err instanceof Error ? err.message : '加载版本失败');
         }
       } finally {
         if (!cancelled) {
@@ -215,20 +215,20 @@ export default function SkillDetailPage() {
   };
 
   if (loading) {
-    return <div className="p-6 text-sm text-muted">Loading skill detail…</div>;
+    return <div className="p-6 text-sm text-muted">加载技能详情中…</div>;
   }
 
   if (error || !skillClass) {
-    return <div className="p-6 text-sm text-danger">{error ?? 'Skill not found'}</div>;
+    return <div className="p-6 text-sm text-danger">{error ?? '技能未找到'}</div>;
   }
 
   return (
     <div className="p-6 space-y-6 relative">
       <div className="flex items-center gap-4">
-        <Link to="/skills" className="chip text-sm transition-colors hover:border-[color:var(--color-border-dark)] hover:text-ink">← Back to Skills</Link>
+        <Link to="/skills" className="chip text-sm transition-colors hover:border-[color:var(--color-border-dark)] hover:text-ink">← 返回技能列表</Link>
         <div className="min-w-0">
           <h1 className="text-3xl font-bold font-serif truncate">{skillClass.name}</h1>
-          <div className="text-sm text-muted mt-1">Skill class anchored on {skillClass.skill_id}</div>
+          <div className="text-sm text-muted mt-1">技能分类锚定于 {skillClass.skill_id}</div>
         </div>
       </div>
 
@@ -236,8 +236,8 @@ export default function SkillDetailPage() {
         <div className="flex items-start justify-between gap-6">
           <div className="space-y-3 min-w-0 flex-1">
             <div>
-              <div className="text-xs uppercase tracking-[0.16em] text-muted">Skill Class</div>
-              <h2 className="text-2xl font-bold font-serif mt-1">Evolution overview</h2>
+              <div className="text-xs uppercase tracking-[0.16em] text-muted">技能分类</div>
+              <h2 className="text-2xl font-bold font-serif mt-1">进化概览</h2>
             </div>
             <div className="flex flex-wrap gap-2 text-xs">
               <span className="tag px-2 py-1">{skillClass.category}</span>
@@ -256,42 +256,42 @@ export default function SkillDetailPage() {
           </div>
           <div className="shrink-0 text-right">
             <div className="text-5xl font-bold font-serif leading-none">{classSummary.bestScore.toFixed(1)}</div>
-            <div className="text-xs uppercase tracking-[0.16em] text-muted mt-2">best version score</div>
+            <div className="text-xs uppercase tracking-[0.16em] text-muted mt-2">最佳版本评分</div>
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-4 text-sm text-muted">
           <div>
-            <div className="font-bold text-ink">Skill directory</div>
-            <div className="break-all">{skillClass.skill_dir || 'Unavailable'}</div>
+            <div className="font-bold text-ink">技能目录</div>
+            <div className="break-all">{skillClass.skill_dir || '不可用'}</div>
           </div>
           <div>
-            <div className="font-bold text-ink">Latest version created</div>
+            <div className="font-bold text-ink">最新版本创建时间</div>
             <div>{formatDate(classSummary.latestCreatedAt)}</div>
           </div>
           <div>
-            <div className="font-bold text-ink">Representative version</div>
+            <div className="font-bold text-ink">代表版本</div>
             <div className="break-all">{skillClass.skill_id}</div>
           </div>
           <div>
-            <div className="font-bold text-ink">Representative update</div>
+            <div className="font-bold text-ink">代表版本更新时间</div>
             <div>{formatDate(skillClass.last_updated)}</div>
           </div>
         </div>
       </section>
 
       <section className="metrics-row">
-        <MetricCard label="Versions" value={classSummary.versionCount} hint={`Max generation ${classSummary.maxGeneration}`} />
-        <MetricCard label="Active Versions" value={classSummary.activeCount} hint={`Origins: ${classSummary.origins.length}`} />
-        <MetricCard label="Average Score" value={classSummary.averageScore.toFixed(1)} hint="Across all versions in this lineage" />
-        <MetricCard label="Selections" value={classSummary.totalSelections} hint={`Representative score ${skillClass.score.toFixed(1)}`} />
+        <MetricCard label="版本数" value={classSummary.versionCount} hint={`最大代数 ${classSummary.maxGeneration}`} />
+        <MetricCard label="活跃版本" value={classSummary.activeCount} hint={`来源: ${classSummary.origins.length}`} />
+        <MetricCard label="平均评分" value={classSummary.averageScore.toFixed(1)} hint="该谱系所有版本的平均分" />
+        <MetricCard label="选用次数" value={classSummary.totalSelections} hint={`代表版本评分 ${skillClass.score.toFixed(1)}`} />
       </section>
 
       <section className="panel-surface overflow-hidden relative min-h-[620px]">
         <div className="px-5 py-4 border-b border-[color:var(--color-border)] bg-surface flex items-center justify-between gap-4 flex-wrap">
           <div>
-            <div className="text-xs uppercase tracking-[0.16em] text-muted">Evolution Graph</div>
-            <h2 className="text-2xl font-bold font-serif mt-1">Version lineage</h2>
+            <div className="text-xs uppercase tracking-[0.16em] text-muted">进化图谱</div>
+            <h2 className="text-2xl font-bold font-serif mt-1">版本谱系</h2>
           </div>
           <SkillVersionFilterBar
             originFilter={originFilter}
@@ -309,7 +309,7 @@ export default function SkillDetailPage() {
           onBackgroundClick={closeDrawer}
         />
         {drawerLoading ? (
-          <div className="absolute bottom-4 left-4 text-xs text-muted">Loading version drawer…</div>
+          <div className="absolute bottom-4 left-4 text-xs text-muted">加载版本详情中…</div>
         ) : null}
         {drawerError ? (
           <div className="absolute bottom-4 left-4 text-xs text-danger">{drawerError}</div>
@@ -317,7 +317,7 @@ export default function SkillDetailPage() {
       </section>
 
       {lineageGraph && lineageGraph.nodes.length === 0 ? (
-        <EmptyState title="No lineage graph" description="This skill does not yet have lineage data to visualize." />
+        <EmptyState title="暂无谱系图" description="该技能尚无可视化的谱系数据。" />
       ) : null}
 
       <SkillVersionDrawer skill={drawerVersion} isOpen={Boolean(selectedVersion)} onClose={closeDrawer} />

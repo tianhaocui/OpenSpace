@@ -13,13 +13,13 @@ export default function MainLayout() {
           <div className="font-bold text-3xl tracking-tighter font-serif">OpenSpace</div>
           <div className="flex gap-4 text-sm">
             <NavLink to="/dashboard" className={linkClass}>
-              Dashboard
+              总览
             </NavLink>
             <NavLink to="/skills" className={linkClass}>
-              Skills
+              技能
             </NavLink>
             <NavLink to="/workflows" className={linkClass}>
-              Workflows
+              工作流
             </NavLink>
           </div>
         </div>

@@ -37,13 +37,13 @@ export class ErrorBoundary extends Component<Props, State> {
                 Something went wrong
               </h1>
               <p className="text-[color:var(--color-muted)] mb-6">
-                An unexpected error occurred
+                发生了意外错误
               </p>
               <button
                 onClick={() => window.location.href = '/dashboard'}
                 className="btn-primary"
               >
-                Go to Dashboard
+                返回总览
               </button>
               {import.meta.env.DEV && this.state.error && (
                 <details className="mt-4 text-left text-xs text-[color:var(--color-muted)]">

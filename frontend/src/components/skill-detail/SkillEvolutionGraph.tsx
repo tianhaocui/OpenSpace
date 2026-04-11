@@ -180,7 +180,7 @@ export default function SkillEvolutionGraph({
   }, []);
 
   if (graphData.nodes.length === 0) {
-    return <div className="text-sm text-muted p-4">No lineage graph data.</div>;
+    return <div className="text-sm text-muted p-4">暂无谱系图数据。</div>;
   }
 
   return (
@@ -197,9 +197,9 @@ export default function SkillEvolutionGraph({
             const graphNode = node as SkillGraphNode;
             return [
               graphNode.name,
-              `score: ${graphNode.score.toFixed(1)}`,
-              `generation: ${graphNode.generation}`,
-              `origin: ${graphNode.origin}`,
+              `评分: ${graphNode.score.toFixed(1)}`,
+              `代数: ${graphNode.generation}`,
+              `来源: ${graphNode.origin}`,
             ].join('\n');
           }}
           onNodeClick={(node) => {
