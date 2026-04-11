@@ -22,8 +22,8 @@ SHARED_SKILLS_HUB = Path.home() / ".agents" / "skills"
 
 # Supported LLM providers for interactive setup
 _LLM_PROVIDERS = [
-    ("anthropic", "Anthropic (Claude Sonnet)", "ANTHROPIC_API_KEY", "anthropic/claude-sonnet-4-20250514"),
-    ("anthropic-opus", "Anthropic (Claude Opus)", "ANTHROPIC_API_KEY", "anthropic/claude-opus-4-20250514"),
+    ("anthropic", "Anthropic (Claude Sonnet 4)", "ANTHROPIC_API_KEY", "anthropic/claude-sonnet-4-20250514"),
+    ("anthropic-opus", "Anthropic (Claude Opus 4.6)", "ANTHROPIC_API_KEY", "anthropic/claude-opus-4-6-20250610"),
     ("openai", "OpenAI (GPT-4o)", "OPENAI_API_KEY", "openai/gpt-4o"),
     ("deepseek", "DeepSeek", "DEEPSEEK_API_KEY", "deepseek/deepseek-chat"),
     ("custom", "Custom endpoint", None, None),
