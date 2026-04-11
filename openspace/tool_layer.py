@@ -68,10 +68,20 @@ class OpenSpaceConfig:
     log_file_path: Optional[str] = None
     
     def __post_init__(self):
-        """Validate configuration"""
+        """Validate configuration — auto-detect model if not provided."""
         if not self.llm_model:
-            raise ValueError("llm_model is required")
-        
+            from openspace.host_detection.resolver import build_llm_kwargs
+            detected_model, detected_kwargs = build_llm_kwargs("")
+            if detected_model:
+                self.llm_model = detected_model
+                if detected_kwargs and not self.llm_kwargs:
+                    self.llm_kwargs = detected_kwargs
+            else:
+                raise ValueError(
+                    "llm_model is required. Set OPENSPACE_MODEL env var or "
+                    "provide a provider API key (ANTHROPIC_API_KEY, OPENAI_API_KEY, etc.)"
+                )
+
         logger.debug(f"OpenSpaceConfig initialized with model: {self.llm_model}")
 
 

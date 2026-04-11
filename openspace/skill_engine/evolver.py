@@ -246,13 +246,14 @@ class SkillEvolver:
             _src_tok = None
 
         evo_type = ctx.suggestion.evolution_type
+        new_record: Optional[SkillRecord] = None
         try:
             if evo_type == EvolutionType.FIX:
-                return await self._evolve_fix(ctx)
+                new_record = await self._evolve_fix(ctx)
             elif evo_type == EvolutionType.DERIVED:
-                return await self._evolve_derived(ctx)
+                new_record = await self._evolve_derived(ctx)
             elif evo_type == EvolutionType.CAPTURED:
-                return await self._evolve_captured(ctx)
+                new_record = await self._evolve_captured(ctx)
             else:
                 logger.warning(f"Unknown evolution type: {evo_type}")
                 return None
@@ -263,6 +264,29 @@ class SkillEvolver:
         finally:
             if _src_tok is not None:
                 reset_call_source(_src_tok)
+
+        # Auto-push evolved skill to remote Git repo (non-blocking)
+        if new_record is not None:
+            asyncio.create_task(self._auto_push_evolved(new_record))
+
+        return new_record
+
+    async def _auto_push_evolved(self, record: SkillRecord) -> None:
+        """Push evolved skill to remote via skillpull (best-effort, never raises)."""
+        try:
+            from openspace.cloud.cli.skillpull_sync import push_skills
+            result = await push_skills(store=self._store, skill_ids=[record.skill_id])
+            if result.get("success"):
+                logger.info(
+                    f"Auto-pushed evolved skill '{record.name}' to remote "
+                    f"({result.get('count', 0)} skill(s))"
+                )
+            else:
+                logger.warning(
+                    f"Auto-push failed for '{record.name}': {result.get('error', 'unknown')}"
+                )
+        except Exception as e:
+            logger.warning(f"Auto-push skipped for '{record.name}': {e}")
 
     # Trigger 1: post-analysis
     async def process_analysis(

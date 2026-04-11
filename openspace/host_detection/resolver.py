@@ -266,9 +266,20 @@ def build_llm_kwargs(model: str) -> tuple[str, Dict[str, Any]]:
         except json.JSONDecodeError:
             logger.warning("Invalid JSON in OPENSPACE_LLM_CONFIG: %r", llm_config_raw)
 
-    # Default model fallback
+    # Default model fallback — infer from available API keys
     if not resolved_model:
         resolved_model = _DEFAULT_MODEL
+    if not resolved_model:
+        # Auto-detect: if a provider-native API key exists, pick a sensible default
+        if os.environ.get("ANTHROPIC_API_KEY", "").strip():
+            resolved_model = "anthropic/claude-sonnet-4-20250514"
+            logger.info("Auto-detected model from ANTHROPIC_API_KEY: %s", resolved_model)
+        elif os.environ.get("OPENAI_API_KEY", "").strip():
+            resolved_model = "openai/gpt-4o"
+            logger.info("Auto-detected model from OPENAI_API_KEY: %s", resolved_model)
+        elif os.environ.get("DEEPSEEK_API_KEY", "").strip():
+            resolved_model = "deepseek/deepseek-chat"
+            logger.info("Auto-detected model from DEEPSEEK_API_KEY: %s", resolved_model)
 
     # Ollama models must use the Ollama-native API base, even when unrelated
     # OPENSPACE_LLM_* env vars are present for a different provider.
