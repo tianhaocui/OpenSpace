@@ -11,23 +11,30 @@ Usage:
 from __future__ import annotations
 
 import json
-import os
 import shutil
 import subprocess
 import sys
 from pathlib import Path
 
+from openspace.host_detection.skill_dirs import _SHARED_HUB as SHARED_SKILLS_HUB
+
 HOST_SKILLS_DIR = Path(__file__).resolve().parent / "host_skills"
-SHARED_SKILLS_HUB = Path.home() / ".agents" / "skills"
 
 MCP_ENV = {
     "OPENSPACE_CLOUD_ENABLED": "false",
     "MCP_USE_ANONYMIZED_TELEMETRY": "false",
 }
 
+# Map display names to CLI binary names
+_TOOL_BINARIES = {
+    "Claude Code": "claude",
+    "Codex": "codex",
+    "Kiro": "kiro",
+}
 
-def _run(cmd: list[str], check: bool = False) -> subprocess.CompletedProcess:
-    return subprocess.run(cmd, capture_output=True, text=True, check=check)
+
+def _run(cmd: list[str]) -> subprocess.CompletedProcess:
+    return subprocess.run(cmd, capture_output=True, text=True)
 
 
 def _has_cmd(name: str) -> bool:
@@ -35,11 +42,9 @@ def _has_cmd(name: str) -> bool:
 
 
 def _resolve_mcp_command() -> str:
-    """Find openspace-mcp command — prefer short name, fallback to full path."""
-    short = shutil.which("openspace-mcp")
-    if short:
+    """Find openspace-mcp — prefer PATH, fallback to sibling of this Python."""
+    if shutil.which("openspace-mcp"):
         return "openspace-mcp"
-    # Fallback: look in the same venv as this script
     venv_bin = Path(sys.executable).parent / "openspace-mcp"
     if venv_bin.exists():
         return str(venv_bin)
@@ -50,71 +55,54 @@ def _print(icon: str, msg: str):
     print(f"  {icon} {msg}")
 
 
-# --- Claude Code ---
+def _is_server_registered(stdout: str, name: str = "openspace") -> bool:
+    """Check if a server is registered by matching whole-word in CLI output."""
+    for line in (stdout or "").splitlines():
+        tokens = line.split()
+        if tokens and tokens[0].rstrip(":") == name:
+            return True
+    return False
 
-def setup_claude_code() -> bool:
-    if not _has_cmd("claude"):
+
+def _setup_cli_tool(
+    binary: str,
+    label: str,
+    mcp_cmd: str,
+    env_flag: str,
+    scope_args: list[str] | None = None,
+) -> bool:
+    """Register OpenSpace MCP server with a CLI-based AI tool."""
+    if not _has_cmd(binary):
         return False
 
-    mcp_cmd = _resolve_mcp_command()
-
-    # Check if already registered
-    result = _run(["claude", "mcp", "list"])
-    if "openspace" in (result.stdout or ""):
-        _print("~", "Claude Code: openspace already registered, updating...")
-        _run(["claude", "mcp", "remove", "openspace", "-s", "user"])
+    result = _run([binary, "mcp", "list"])
+    if _is_server_registered(result.stdout):
+        _print("~", f"{label}: openspace already registered, updating...")
+        _run([binary, "mcp", "remove", "openspace"] + (scope_args or []))
 
     env_args = []
     for k, v in MCP_ENV.items():
-        env_args.extend(["-e", f"{k}={v}"])
+        env_args.extend([env_flag, f"{k}={v}"])
 
-    result = _run(
-        ["claude", "mcp", "add", "openspace", "-s", "user"]
-        + env_args
-        + ["--", mcp_cmd]
-    )
+    add_cmd = [binary, "mcp", "add", "openspace"] + (scope_args or []) + env_args + ["--", mcp_cmd]
+    result = _run(add_cmd)
+
     if result.returncode == 0:
-        _print("OK", "Claude Code: MCP server registered (user scope)")
+        _print("OK", f"{label}: MCP server registered")
         return True
-    else:
-        _print("!!", f"Claude Code: registration failed — {result.stderr.strip()}")
-        return False
+    _print("!!", f"{label}: registration failed — {result.stderr.strip()}")
+    return False
 
 
-# --- Codex ---
-
-def setup_codex() -> bool:
-    if not _has_cmd("codex"):
-        return False
-
-    mcp_cmd = _resolve_mcp_command()
-
-    # Check if already registered
-    result = _run(["codex", "mcp", "list"])
-    if "openspace" in (result.stdout or ""):
-        _print("~", "Codex: openspace already registered, updating...")
-        _run(["codex", "mcp", "remove", "openspace"])
-
-    env_args = []
-    for k, v in MCP_ENV.items():
-        env_args.extend(["--env", f"{k}={v}"])
-
-    result = _run(
-        ["codex", "mcp", "add", "openspace"]
-        + env_args
-        + ["--", mcp_cmd]
-    )
-    if result.returncode == 0:
-        _print("OK", "Codex: MCP server registered")
-        return True
-    else:
-        _print("!!", f"Codex: registration failed — {result.stderr.strip()}")
-        return False
+def setup_claude_code(mcp_cmd: str) -> bool:
+    return _setup_cli_tool("claude", "Claude Code", mcp_cmd, "-e", ["-s", "user"])
 
 
-# --- Kiro ---
+def setup_codex(mcp_cmd: str) -> bool:
+    return _setup_cli_tool("codex", "Codex", mcp_cmd, "--env")
 
-def setup_kiro() -> bool:
+
+def setup_kiro(mcp_cmd: str) -> bool:
     kiro_dir = Path.home() / ".kiro"
     if not kiro_dir.exists():
         return False
@@ -123,7 +111,6 @@ def setup_kiro() -> bool:
     mcp_config_dir.mkdir(parents=True, exist_ok=True)
     mcp_config_path = mcp_config_dir / "mcp.json"
 
-    # Load existing config or start fresh
     existing = {}
     if mcp_config_path.exists():
         try:
@@ -132,11 +119,7 @@ def setup_kiro() -> bool:
             pass
 
     servers = existing.get("mcpServers", {})
-    servers["openspace"] = {
-        "command": _resolve_mcp_command(),
-        "args": [],
-        "env": MCP_ENV,
-    }
+    servers["openspace"] = {"command": mcp_cmd, "args": [], "env": MCP_ENV}
     existing["mcpServers"] = servers
 
     mcp_config_path.write_text(
@@ -146,8 +129,6 @@ def setup_kiro() -> bool:
     _print("OK", f"Kiro: MCP config written to {mcp_config_path}")
     return True
 
-
-# --- Skills ---
 
 def copy_host_skills() -> int:
     if not HOST_SKILLS_DIR.is_dir():
@@ -171,22 +152,13 @@ def copy_host_skills() -> int:
     return copied
 
 
-# --- .mcp.json ---
-
-def write_project_mcp_json() -> bool:
+def write_project_mcp_json(mcp_cmd: str) -> bool:
     mcp_json_path = Path.cwd() / ".mcp.json"
     if mcp_json_path.exists():
         _print("~", ".mcp.json already exists, skipping")
         return False
 
-    config = {
-        "mcpServers": {
-            "openspace": {
-                "command": "openspace-mcp",
-                "env": MCP_ENV,
-            }
-        }
-    }
+    config = {"mcpServers": {"openspace": {"command": mcp_cmd, "env": MCP_ENV}}}
     mcp_json_path.write_text(
         json.dumps(config, indent=2, ensure_ascii=False) + "\n",
         encoding="utf-8",
@@ -195,27 +167,31 @@ def write_project_mcp_json() -> bool:
     return True
 
 
-# --- Main ---
-
 def main():
     skip_skills = "--skip-skills" in sys.argv
+    mcp_cmd = _resolve_mcp_command()
 
     print("\nOpenSpace Setup\n")
 
     registered = []
     not_found = []
 
-    for name, fn in [("Claude Code", setup_claude_code), ("Codex", setup_codex), ("Kiro", setup_kiro)]:
-        result = fn()
+    tools = [
+        ("Claude Code", setup_claude_code),
+        ("Codex", setup_codex),
+        ("Kiro", setup_kiro),
+    ]
+    for name, fn in tools:
+        result = fn(mcp_cmd)
         if result:
             registered.append(name)
-        elif result is False and not _has_cmd(name.lower().replace(" ", "")):
+        elif not _has_cmd(_TOOL_BINARIES.get(name, "")):
             not_found.append(name)
 
     if not skip_skills:
         copy_host_skills()
 
-    write_project_mcp_json()
+    write_project_mcp_json(mcp_cmd)
 
     print()
     if registered:
