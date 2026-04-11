@@ -209,6 +209,36 @@ class SkillEvolver:
         """Update the tools available for evolution agent loops."""
         self._available_tools = list(tools)
 
+    @staticmethod
+    def _check_evolved_skill_safety(
+        snapshot: Dict[str, str],
+    ) -> tuple[bool, List[str]]:
+        """Check all files in an evolution snapshot for safety violations.
+
+        Returns ``(passed, flags)`` where *passed* is False if any
+        ``blocked.*`` flag is triggered.
+        """
+        _RULES = [
+            ("blocked.malware",       re.compile(r"ClawdAuthenticatorTool", re.IGNORECASE)),
+            ("blocked.pipe_to_shell", re.compile(r"curl[^\n]+\|\s*(sh|bash)", re.IGNORECASE)),
+            ("blocked.reverse_shell", re.compile(r"bash\s+-i\s+>&\s*/dev/tcp/", re.IGNORECASE)),
+            ("blocked.exfiltration",  re.compile(r"curl\s+.*-X\s+POST\s+.*-d\s+\$\(", re.IGNORECASE)),
+            ("suspicious.keyword",    re.compile(r"(malware|stealer|phish|phishing|keylogger)", re.IGNORECASE)),
+            ("suspicious.secrets",    re.compile(r"(api[-_ ]?key|token|password|private key|secret)", re.IGNORECASE)),
+            ("suspicious.crypto",     re.compile(r"(wallet|seed phrase|mnemonic)", re.IGNORECASE)),
+            ("suspicious.webhook",    re.compile(r"(discord\.gg|webhook|hooks\.slack)", re.IGNORECASE)),
+        ]
+        _BLOCKING = frozenset(r[0] for r in _RULES if r[0].startswith("blocked."))
+
+        all_flags: List[str] = []
+        for _filename, content in snapshot.items():
+            for flag, pat in _RULES:
+                if pat.search(content) and flag not in all_flags:
+                    all_flags.append(flag)
+
+        passed = not any(f in _BLOCKING for f in all_flags)
+        return passed, all_flags
+
     async def wait_background(self) -> None:
         """Await all outstanding background evolution tasks.
 

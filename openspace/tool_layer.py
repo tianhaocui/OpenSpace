@@ -23,7 +23,7 @@ logger = Logger.get_logger(__name__)
 @dataclass
 class OpenSpaceConfig:
     # LLM Configuration
-    llm_model: str = "openrouter/anthropic/claude-sonnet-4.5"
+    llm_model: str = ""
     llm_enable_thinking: bool = False
     llm_timeout: float = 120.0
     llm_max_retries: int = 3

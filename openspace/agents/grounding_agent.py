@@ -741,7 +741,7 @@ class GroundingAgent(BaseAgent):
                 })
 
             # Use dedicated visual analysis model if configured, otherwise use main LLM model
-            visual_model = self._visual_analysis_model or (self._llm_client.model if self._llm_client else "openrouter/anthropic/claude-sonnet-4.5")
+            visual_model = self._visual_analysis_model or (self._llm_client.model if self._llm_client else "")
             response = await asyncio.wait_for(
                 litellm.acompletion(
                     model=visual_model,

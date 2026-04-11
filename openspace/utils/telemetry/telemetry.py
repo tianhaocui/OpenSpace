@@ -69,9 +69,9 @@ class Telemetry:
 
     USER_ID_PATH = str(get_cache_home() / "mcp_use_3" / "telemetry_user_id")
     VERSION_DOWNLOAD_PATH = str(get_cache_home() / "mcp_use" / "download_version")
-    PROJECT_API_KEY = "phc_lyTtbYwvkdSbrcMQNPiKiiRWrrM1seyKIMjycSvItEI"
-    HOST = "https://eu.i.posthog.com"
-    SCARF_GATEWAY_URL = "https://mcpuse.gateway.scarf.sh/events"
+    PROJECT_API_KEY = os.environ.get("POSTHOG_API_KEY", "")
+    HOST = os.environ.get("POSTHOG_HOST", "")
+    SCARF_GATEWAY_URL = os.environ.get("SCARF_GATEWAY_URL", "")
     UNKNOWN_USER_ID = "UNKNOWN_USER_ID"
 
     _curr_user_id = None

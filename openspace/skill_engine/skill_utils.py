@@ -10,6 +10,7 @@ Provides:
 
 from __future__ import annotations
 
+import os
 import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -22,6 +23,10 @@ SKILL_FILENAME = "SKILL.md"
 
 _SAFETY_RULES = [
     ("blocked.malware",         re.compile(r"(ClawdAuthenticatorTool)", re.IGNORECASE)),
+    ("blocked.pipe_to_shell",   re.compile(r"(curl|wget)[^\n]+\|\s*(sh|bash)", re.IGNORECASE)),
+    ("blocked.reverse_shell",   re.compile(r"bash\s+-i\s+>&\s*/dev/tcp/", re.IGNORECASE)),
+    ("blocked.exfiltration",    re.compile(r"curl\s+.*-X\s+POST\s+.*-d\s+\$\(", re.IGNORECASE)),
+    ("suspicious.prompt_injection", re.compile(r"(ignore previous instructions|disregard all above instructions)", re.IGNORECASE)),
     ("suspicious.keyword",      re.compile(r"(malware|stealer|phish|phishing|keylogger)", re.IGNORECASE)),
     ("suspicious.secrets",      re.compile(r"(api[-_ ]?key|token|password|private key|secret)", re.IGNORECASE)),
     ("suspicious.crypto",       re.compile(r"(wallet|seed phrase|mnemonic|crypto)", re.IGNORECASE)),
@@ -30,7 +35,7 @@ _SAFETY_RULES = [
     ("suspicious.url_shortener", re.compile(r"(bit\.ly|tinyurl\.com|t\.co|goo\.gl|is\.gd)", re.IGNORECASE)),
 ]
 
-_BLOCKING_FLAGS = frozenset({"blocked.malware"})
+_BLOCKING_FLAGS = frozenset(f for f, _ in _SAFETY_RULES if f.startswith("blocked."))
 
 
 def check_skill_safety(text: str) -> List[str]:
@@ -45,9 +50,18 @@ def is_skill_safe(flags: List[str]) -> bool:
     """Return True if *flags* contain no blocking flag.
 
     ``suspicious.*`` flags are informational (logged / attached to search
-    results) but do NOT block.  Only ``blocked.*`` flags cause rejection.
+    results) but do NOT block in standard mode.  Only ``blocked.*`` flags
+    cause rejection.
+
+    When ``OPENSPACE_SAFETY_LEVEL=strict``, any ``suspicious.*`` flag also
+    causes rejection.
     """
-    return not any(f in _BLOCKING_FLAGS for f in flags)
+    if any(f in _BLOCKING_FLAGS for f in flags):
+        return False
+    strict = os.environ.get("OPENSPACE_SAFETY_LEVEL", "").strip().lower() == "strict"
+    if strict and any(f.startswith("suspicious.") for f in flags):
+        return False
+    return True
 
 _FRONTMATTER_RE = re.compile(r"^---\n(.*?)\n---", re.DOTALL)
 
@@ -76,11 +90,23 @@ def _yaml_unquote(value: str) -> str:
     return value
 
 
+def _parse_yaml_value(value: str) -> Any:
+    """Parse a YAML scalar or inline list value."""
+    value = value.strip()
+    if not value:
+        return ""
+    # Inline list: [a, b, c]
+    if value.startswith("[") and value.endswith("]"):
+        inner = value[1:-1]
+        return [_yaml_unquote(item.strip()) for item in inner.split(",") if item.strip()]
+    return _yaml_unquote(value)
+
+
 def parse_frontmatter(content: str) -> Dict[str, Any]:
-    """Parse YAML frontmatter into a flat dict.
+    """Parse YAML frontmatter into a dict.
 
     Simple line-by-line parser (no PyYAML dependency).
-    Handles both quoted and unquoted values.
+    Handles quoted/unquoted values, inline lists, and nested dicts.
     Returns ``{}`` if no valid frontmatter is found.
     """
     if not content.startswith("---"):
@@ -89,12 +115,74 @@ def parse_frontmatter(content: str) -> Dict[str, Any]:
     if not match:
         return {}
     fm: Dict[str, Any] = {}
-    for line in match.group(1).split("\n"):
-        if ":" in line:
-            key, value = line.split(":", 1)
-            key = key.strip()
-            if key:
-                fm[key] = _yaml_unquote(value.strip())
+    lines = match.group(1).split("\n")
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        if ":" not in line:
+            i += 1
+            continue
+        # Determine indentation level
+        stripped = line.lstrip()
+        indent = len(line) - len(stripped)
+        if indent > 0:
+            i += 1
+            continue  # skip nested lines in top-level pass
+        key, value = stripped.split(":", 1)
+        key = key.strip()
+        value = value.strip()
+        if not key:
+            i += 1
+            continue
+        if value:
+            fm[key] = _parse_yaml_value(value)
+        else:
+            # Possibly a nested dict — collect indented lines
+            nested: Dict[str, Any] = {}
+            j = i + 1
+            while j < len(lines):
+                nline = lines[j]
+                nstripped = nline.lstrip()
+                nindent = len(nline) - len(nstripped)
+                if nindent <= indent or not nstripped:
+                    if not nstripped:
+                        j += 1
+                        continue
+                    break
+                if ":" in nstripped:
+                    nkey, nval = nstripped.split(":", 1)
+                    nkey = nkey.strip()
+                    nval = nval.strip()
+                    if nkey and nval:
+                        nested[nkey] = _parse_yaml_value(nval)
+                    elif nkey and not nval:
+                        # Second level nesting
+                        inner: Dict[str, Any] = {}
+                        k = j + 1
+                        while k < len(lines):
+                            iline = lines[k]
+                            istripped = iline.lstrip()
+                            iindent = len(iline) - len(istripped)
+                            if iindent <= nindent or not istripped:
+                                if not istripped:
+                                    k += 1
+                                    continue
+                                break
+                            if ":" in istripped:
+                                ik, iv = istripped.split(":", 1)
+                                ik = ik.strip()
+                                iv = iv.strip()
+                                if ik:
+                                    inner[ik] = _parse_yaml_value(iv)
+                            k += 1
+                        nested[nkey] = inner
+                        j = k
+                        continue
+                j += 1
+            fm[key] = nested
+            i = j
+            continue
+        i += 1
     return fm
 
 

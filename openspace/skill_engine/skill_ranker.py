@@ -33,7 +33,7 @@ from openspace.utils.logging import Logger
 logger = Logger.get_logger(__name__)
 
 # Embedding model — must match clawhub platform for vector-space compatibility
-SKILL_EMBEDDING_MODEL = "openai/text-embedding-3-small"
+from openspace.cloud.embedding import SKILL_EMBEDDING_MODEL
 SKILL_EMBEDDING_MAX_CHARS = 12_000
 
 # Pre-filter threshold: when local skills exceed this count, BM25 pre-filter

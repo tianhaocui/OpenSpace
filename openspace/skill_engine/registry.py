@@ -24,7 +24,7 @@ from __future__ import annotations
 import json
 import re
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
@@ -97,6 +97,12 @@ class SkillMeta:
     name: str              # Human-readable name (from frontmatter or dirname)
     description: str
     path: Path             # Absolute path to SKILL.md
+    tags: Optional[List[str]] = None
+    metadata: Optional[Dict[str, Any]] = field(default=None)
+
+    def __post_init__(self) -> None:
+        if self.metadata is None:
+            self.metadata = {}
 
 
 class SkillRegistry:
@@ -642,20 +648,37 @@ class SkillRegistry:
     ) -> SkillMeta:
         """Parse a SKILL.md file into a SkillMeta.
 
-        Only ``name`` and ``description`` are read from frontmatter
-        (per the official skill format).  ``skill_id`` is read from
-        the ``.skill_id`` sidecar (created if absent).
+        Reads ``name``, ``description``, ``tags``, and extra metadata fields
+        from frontmatter.  ``skill_id`` is read from the ``.skill_id``
+        sidecar (created if absent).
         """
         frontmatter = parse_frontmatter(content)
         name = frontmatter.get("name", dir_name)
         description = frontmatter.get("description", name)
         skill_id = _read_or_create_skill_id(name, skill_dir)
 
+        # Extract tags: top-level "tags" or nested "metadata.hermes.tags"
+        tags = frontmatter.get("tags")
+        if tags is None:
+            meta_block = frontmatter.get("metadata")
+            if isinstance(meta_block, dict):
+                hermes = meta_block.get("hermes")
+                if isinstance(hermes, dict):
+                    tags = hermes.get("tags")
+        if isinstance(tags, str):
+            tags = [t.strip() for t in tags.split(",") if t.strip()]
+
+        # Extract extra metadata fields (beyond name/description/tags)
+        _CORE_KEYS = {"name", "description", "tags", "metadata"}
+        metadata = {k: v for k, v in frontmatter.items() if k not in _CORE_KEYS}
+
         return SkillMeta(
             skill_id=skill_id,
             name=name,
             description=description,
             path=skill_file,
+            tags=tags or None,
+            metadata=metadata,
         )
 
     # Frontmatter parsing is delegated to skill_utils (single source of truth).
