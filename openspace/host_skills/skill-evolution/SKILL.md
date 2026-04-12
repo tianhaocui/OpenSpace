@@ -61,7 +61,11 @@ The `direction` must be specific and actionable. Examples:
 2. **One fix_skill call per skill** — Don't call it multiple times for the same skill in one session.
 3. **Don't fix what isn't broken** — Score A skills get no fix_skill call. Don't "improve" working skills.
 4. **Fix based on evidence** — Only suggest fixes for issues you actually encountered during the task, not hypothetical problems.
-5. **Keep it brief** — The evaluation is internal. Don't output a long analysis to the user. Just call fix_skill if needed, and mention it in one line: "Evolved [skill-name]: [one-line summary]."
+5. **Always show the evaluation** — After evaluating, output a one-line summary for each skill used:
+   - `[A] skillpull — accurate and complete, no changes needed`
+   - `[B] git-commit — missing amend example → evolving`
+   - `[C] lark-docs — wrong API endpoint → evolving`
+   - `[F] old-workflow — completely outdated → flagged for review`
 
 ## Finding the Skill Directory
 
