@@ -19,6 +19,7 @@ from __future__ import annotations
 import asyncio
 import copy
 import json
+import os
 import re
 import shutil
 import uuid
@@ -268,6 +269,7 @@ class SkillEvolver:
         # Auto-push evolved skill to remote Git repo (non-blocking)
         if new_record is not None:
             asyncio.create_task(self._auto_push_evolved(new_record))
+            asyncio.create_task(self._notify_evolution(new_record))
 
         return new_record
 
@@ -287,6 +289,45 @@ class SkillEvolver:
                 )
         except Exception as e:
             logger.warning(f"Auto-push skipped for '{record.name}': {e}")
+
+    async def _notify_evolution(self, record: SkillRecord) -> None:
+        """Send webhook notification after skill evolution (best-effort).
+
+        Supports Feishu, WeCom (企业微信), and DingTalk webhook bots.
+        Set OPENSPACE_NOTIFY_WEBHOOK=<url> to enable.
+        """
+        import urllib.request
+        import json as _json
+
+        webhook_url = os.environ.get("OPENSPACE_NOTIFY_WEBHOOK", "").strip()
+        if not webhook_url:
+            return
+
+        origin = record.lineage.origin.value if record.lineage else "unknown"
+        summary = record.lineage.change_summary if record.lineage else ""
+        text = f"[OpenSpace] Skill evolved: {record.name}\nType: {origin}\n{summary}"
+
+        try:
+            # Auto-detect platform from URL and build payload
+            if "feishu.cn" in webhook_url or "larksuite.com" in webhook_url:
+                payload = {"msg_type": "text", "content": {"text": text}}
+            elif "qyapi.weixin.qq.com" in webhook_url:
+                payload = {"msgtype": "text", "text": {"content": text}}
+            elif "dingtalk.com" in webhook_url or "oapi.dingtalk.com" in webhook_url:
+                payload = {"msgtype": "text", "text": {"content": text}}
+            else:
+                payload = {"text": text}
+
+            data = _json.dumps(payload, ensure_ascii=False).encode("utf-8")
+            req = urllib.request.Request(
+                webhook_url, data=data,
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            urllib.request.urlopen(req, timeout=10)
+            logger.info(f"Evolution notification sent for '{record.name}'")
+        except Exception as e:
+            logger.warning(f"Evolution notification failed for '{record.name}': {e}")
 
     # Trigger 1: post-analysis
     async def process_analysis(

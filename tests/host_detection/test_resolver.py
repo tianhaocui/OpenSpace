@@ -21,9 +21,13 @@ class TestBuildLlmKwargs:
         assert kwargs["api_key"] == "sk-explicit"
         assert kwargs["api_base"] == "https://my-proxy.com/v1"
 
-    def test_falls_back_to_default_model(self, monkeypatch: pytest.MonkeyPatch):
+    def test_falls_back_to_default_when_no_keys(self, monkeypatch: pytest.MonkeyPatch):
         monkeypatch.delenv("OPENSPACE_LLM_API_KEY", raising=False)
         monkeypatch.delenv("OPENSPACE_LLM_API_BASE", raising=False)
+        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+        monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
         model, _ = build_llm_kwargs("")
         assert model == _DEFAULT_MODEL
 
