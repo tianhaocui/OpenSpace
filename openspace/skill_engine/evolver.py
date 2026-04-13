@@ -273,9 +273,15 @@ class SkillEvolver:
         return new_record
 
     async def _auto_push_evolved(self, record: SkillRecord) -> None:
-        """Push evolved skill to remote via skillpull (best-effort, never raises)."""
+        """Push evolved skill to remote via skillpull (best-effort, never raises).
+
+        skillpull reads .skillpullrc from cwd for project/repo config.
+        Falls back to OPENSPACE_SKILLPULL_PROJECT/REPO env vars if set.
+        """
         try:
             from openspace.cloud.cli.skillpull_sync import push_skills
+            # Let skillpull read .skillpullrc from workspace dir
+            workspace = os.environ.get("OPENSPACE_WORKSPACE", "").strip() or None
             project = os.environ.get("OPENSPACE_SKILLPULL_PROJECT", "").strip() or None
             repo = os.environ.get("OPENSPACE_SKILLPULL_REPO", "").strip() or None
             result = await push_skills(
@@ -283,6 +289,7 @@ class SkillEvolver:
                 skill_ids=[record.skill_id],
                 project=project,
                 repo=repo,
+                cwd=workspace,
             )
             if result.get("success"):
                 logger.info(
