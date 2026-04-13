@@ -22,13 +22,13 @@ class TestSetupKiro:
         kiro_dir = tmp_path / ".kiro"
         kiro_dir.mkdir()
         monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
-        assert setup_kiro() is True
+        assert setup_kiro("openspace-mcp") is True
         config = json.loads((kiro_dir / "settings" / "mcp.json").read_text())
         assert "openspace" in config["mcpServers"]
 
     def test_skips_when_no_kiro(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
         monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
-        assert setup_kiro() is False
+        assert setup_kiro("openspace-mcp") is False
 
     def test_preserves_existing_servers(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
         kiro_dir = tmp_path / ".kiro"
@@ -36,7 +36,7 @@ class TestSetupKiro:
         settings.mkdir(parents=True)
         (settings / "mcp.json").write_text(json.dumps({"mcpServers": {"other": {"command": "x"}}}))
         monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
-        setup_kiro()
+        setup_kiro("openspace-mcp")
         config = json.loads((settings / "mcp.json").read_text())
         assert "other" in config["mcpServers"]
         assert "openspace" in config["mcpServers"]
@@ -46,13 +46,13 @@ class TestWriteProjectMcpJson:
 
     def test_writes_mcp_json(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
         monkeypatch.chdir(tmp_path)
-        assert write_project_mcp_json() is True
+        assert write_project_mcp_json("openspace-mcp") is True
         assert (tmp_path / ".mcp.json").exists()
 
     def test_skips_if_exists(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
         monkeypatch.chdir(tmp_path)
         (tmp_path / ".mcp.json").write_text("{}")
-        assert write_project_mcp_json() is False
+        assert write_project_mcp_json("openspace-mcp") is False
 
 
 class TestCopyHostSkills:
