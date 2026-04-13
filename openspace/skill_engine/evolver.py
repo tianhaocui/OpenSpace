@@ -247,14 +247,13 @@ class SkillEvolver:
             _src_tok = None
 
         evo_type = ctx.suggestion.evolution_type
-        new_record: Optional[SkillRecord] = None
         try:
             if evo_type == EvolutionType.FIX:
-                new_record = await self._evolve_fix(ctx)
+                return await self._evolve_fix(ctx)
             elif evo_type == EvolutionType.DERIVED:
-                new_record = await self._evolve_derived(ctx)
+                return await self._evolve_derived(ctx)
             elif evo_type == EvolutionType.CAPTURED:
-                new_record = await self._evolve_captured(ctx)
+                return await self._evolve_captured(ctx)
             else:
                 logger.warning(f"Unknown evolution type: {evo_type}")
                 return None
@@ -274,10 +273,24 @@ class SkillEvolver:
         return new_record
 
     async def _auto_push_evolved(self, record: SkillRecord) -> None:
-        """Push evolved skill to remote via skillpull (best-effort, never raises)."""
+        """Push evolved skill to remote via skillpull (best-effort, never raises).
+
+        skillpull reads .skillpullrc from cwd for project/repo config.
+        Falls back to OPENSPACE_SKILLPULL_PROJECT/REPO env vars if set.
+        """
         try:
             from openspace.cloud.cli.skillpull_sync import push_skills
-            result = await push_skills(store=self._store, skill_ids=[record.skill_id])
+            # Let skillpull read .skillpullrc from workspace dir
+            workspace = os.environ.get("OPENSPACE_WORKSPACE", "").strip() or None
+            project = os.environ.get("OPENSPACE_SKILLPULL_PROJECT", "").strip() or None
+            repo = os.environ.get("OPENSPACE_SKILLPULL_REPO", "").strip() or None
+            result = await push_skills(
+                store=self._store,
+                skill_ids=[record.skill_id],
+                project=project,
+                repo=repo,
+                cwd=workspace,
+            )
             if result.get("success"):
                 logger.info(
                     f"Auto-pushed evolved skill '{record.name}' to remote "
@@ -291,11 +304,7 @@ class SkillEvolver:
             logger.warning(f"Auto-push skipped for '{record.name}': {e}")
 
     async def _notify_evolution(self, record: SkillRecord) -> None:
-        """Send webhook notification after skill evolution (best-effort).
-
-        Supports Feishu, WeCom (企业微信), and DingTalk webhook bots.
-        Set OPENSPACE_NOTIFY_WEBHOOK=<url> to enable.
-        """
+        """Send webhook notification after skill evolution (best-effort)."""
         import urllib.request
         import json as _json
 
@@ -308,7 +317,6 @@ class SkillEvolver:
         text = f"[OpenSpace] Skill evolved: {record.name}\nType: {origin}\n{summary}"
 
         try:
-            # Auto-detect platform from URL and build payload
             if "feishu.cn" in webhook_url or "larksuite.com" in webhook_url:
                 payload = {"msg_type": "text", "content": {"text": text}}
             elif "qyapi.weixin.qq.com" in webhook_url:
@@ -328,7 +336,6 @@ class SkillEvolver:
             logger.info(f"Evolution notification sent for '{record.name}'")
         except Exception as e:
             logger.warning(f"Evolution notification failed for '{record.name}': {e}")
-
     # Trigger 1: post-analysis
     async def process_analysis(
         self,

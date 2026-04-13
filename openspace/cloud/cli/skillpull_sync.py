@@ -272,8 +272,13 @@ async def push_skills(
     store=None,
     skill_ids: Optional[List[str]] = None,
     project: Optional[str] = None,
+    cwd: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Export evolved skills and push to Git repo via skillpull."""
+    """Export evolved skills and push to Git repo via skillpull.
+
+    If *cwd* is set, skillpull runs in that directory and reads
+    ``.skillpullrc`` for project/repo config automatically.
+    """
     exported = []
     if store:
         exported = export_evolved_for_push(store, skill_ids)
@@ -286,7 +291,7 @@ async def push_skills(
     if project:
         args.extend(["--project", project])
 
-    result = await run_skillpull(args)
+    result = await run_skillpull(args, cwd=cwd)
 
     if not result.ok:
         return {
