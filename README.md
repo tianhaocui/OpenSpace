@@ -4,184 +4,133 @@
     <img src="assets/logo.png" width="320px" style="border: none; box-shadow: none;" alt="OpenSpace Logo">
 </picture>
 
-## ✨ OpenSpace: Make Your Agents: Smarter, Low-Cost, Self-Evolving ✨
+## OpenSpace: Self-Evolving Skills for AI Agents
 
-| 🔋 **46% Fewer Tokens** | **💰 $11K earned in 6 Hours** | 🧬 **Self-Evolving Skills** | 🌐 **Agents Experience Sharing** |
-
-[![Agents](https://img.shields.io/badge/Agents-Claude_Code%20%7C%20Codex%20%7C%20Hermes%20%7C%20OpenClaw%20%7C%20nanobot%20%7C%20...-99C9BF.svg)](https://modelcontextprotocol.io/)
+[![Agents](https://img.shields.io/badge/Agents-Claude_Code%20%7C%20Codex%20%7C%20Kiro-99C9BF.svg)](https://modelcontextprotocol.io/)
 [![Python](https://img.shields.io/badge/Python-3.12+-FCE7D6.svg)](https://www.python.org/)
 [![License](https://img.shields.io/badge/License-MIT-C1E5F5.svg)](https://opensource.org/licenses/MIT/)
-[![Feishu](https://img.shields.io/badge/Feishu-Group-E9DBFC?style=flat&logo=larksuite&logoColor=white)](./COMMUNICATION.md)
-[![WeChat](https://img.shields.io/badge/WeChat-Group-C5EAB4?style=flat&logo=wechat&logoColor=white)](./COMMUNICATION.md)
-[![中文文档](https://img.shields.io/badge/文档-中文版-F5C6C6?style=flat)](./README_CN.md)
 
-**One Command to Evolve All Your AI Agents**: OpenClaw, nanobot, Hermes, Claude Code, Codex, Cursor and etc.
-
-<img src="assets/cli-typing.gif" width="500px" alt="openspace --query your task">
+Skills that learn, improve, and share themselves across your AI tools.
 
 </div>
 
 ---
 
-## 📢 News
+## What is OpenSpace?
 
-- **2026-04-10** 🛡️ **Phase 2 batch 1** — Embedding config unified (`EMBEDDING_API_KEY`/`EMBEDDING_BASE_URL`/`EMBEDDING_MODEL` now respected by skill ranking), evolved skills now pass safety checks before activation, new blocking rules for reverse shells / pipe-to-shell / data exfiltration, `OPENSPACE_SAFETY_LEVEL=strict` mode.
-- **2026-04-10** 🤝 **Hermes Agent + skillpull** — Hermes added as third host agent (auto-detect `~/.hermes/config.yaml`), bidirectional Git skill sync via `sync_skills_git` MCP tool and `openspace-skillpull` CLI.
-- **2026-04-09** 💬 Multi-channel **communication gateway**. OpenSpace can now receive and respond to messages from external platforms. Ships with **WhatsApp** (Baileys bridge + QR auth) and **Feishu** (HTTP webhook) adapters, session management, attachment caching, and allowlist-based access control. See [`openspace/config/README.md`](openspace/config/README.md) for setup.
-- **2026-04-07** 🌐 OpenSpace MCP now supports standalone **SSE** and **streamable HTTP** startup, making it easier for remote hosts to connect over HTTP instead of stdio and bypass stdio-bound MCP server timeout bottlenecks. See the [host integration guide](openspace/host_skills/README.md) for setup details.
-- **2026-04-06** 🛠️ Fixed multiple runtime issues across grounding, MCP serving, skill evolution, and persistence, improving execution stability and recovery in long-running workflows.
-- **2026-04-05** 🧭 Cleaned up LLM credential resolution: centralized `.env` loading, improved host config auto-detection, and made provider-native env handling more consistent.
-- **2026-04-03** 🚀 Released **v0.1.0** — Skill quality monitoring: structural patterns extracted from high-quality skills now evaluate every new submission daily. Faster, more relevant cloud search. Production-grade vertical skill clusters emerging organically from the community. Frontend now supports Chinese (zh) i18n.
-- **2026-04-02** ⚡ Cloud search upgraded for higher relevance and lower latency.
-- **2026-03-31** 🛡️ Security hardening: hardened zip extraction and `import_skill` against path traversal. CLI now respects `OPENSPACE_MODEL` and `OPENSPACE_LLM_*` env vars; MiniMax compatibility; workflow ID collision fixes.
-- **2026-03-29** 🔒 Pinned litellm to <1.82.7 to avoid PYSEC-2026-2 supply-chain attack.
-- **2026-03-28** 🔧 Idempotent skill registration — `register_skill_dir` now returns existing `SkillMeta` for already-registered skills. Updated OpenClaw setup docs.
-- **2026-03-27** 🪟 Fixed stdio deadlock on Windows; improved evolver confirmation parsing with stem-style keyword matching.
-- **2026-03-26** 🌱 Dynamic skill directory re-scanning on each call, lightweight local skill search, and streamlined documentation.
-- **2026-03-25** 🎉 OpenSpace is now open source!
+OpenSpace is an MCP server that gives your AI agents (Claude Code, Codex, Kiro) self-evolving skills. It plugs into any agent that supports the Model Context Protocol.
+
+**What it does:**
+- Skills automatically improve after each use (FIX / DERIVED / CAPTURED)
+- Evolved skills push to your team's Git repo via skillpull
+- Team members pull improvements automatically
+- All agents share the same skill library
+
+**What you get:**
+- Reuse proven patterns instead of reasoning from scratch
+- Failed approaches get fixed, not repeated
+- One agent learns, all agents benefit
 
 ---
 
-## The Problem with Today's AI Agents
-
-Today's AI agents — [OpenClaw](https://github.com/openclaw/openclaw), [nanobot](https://github.com/HKUDS/nanobot), [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [Codex](https://github.com/openai/codex), [Cursor](https://cursor.com), etc. — are powerful, but they have a critical weakness: they never **Learn**, **Adapt**, and **Evolve** from real-world experience — let alone **Share** with each other.
-- **❌ Massive Token Waste** - How to reuse successful task patterns instead of reasoning from scratch and burning tokens every time?
-- **❌ Repeated Costly Failures** - How to share solutions across agents instead of repeating the same costly exploration and mistakes?
-- **❌ Poor and Unreliable Skills** - How to maintain skill reliability as tools and APIs evolve — while ensuring community-contributed skills meet rigorous quality standards?
-
-## 🎯 What is OpenSpace?
-
-**🚀 🚀 The self-evolving engine where every task makes every agent smarter and more cost-efficient.**
-
-https://github.com/user-attachments/assets/c50f70ab-f6db-47bf-9498-3210c0f0abae
-
-OpenSpace plugs into any agent as skills and evolves it with three superpowers:
-
-### 🧬 Self-Evolution
-Skills that learn and improve themselves automatically
-- ✅ **AUTO-FIX** — When a skill breaks, it fixes itself instantly
-- ✅ **AUTO-IMPROVE** — Successful patterns become better skill versions
-- ✅ **AUTO-LEARN** — Captures winning workflows from actual usage
-- ✅ **Quality monitoring** — Tracks skill performance, error rates, and execution success across all tasks.
-
-**Skills that continuously evolve — turning every failure into improvement, every success into optimization.**
-
-### 🌐 Collective Agent Intelligence
-Turn individual agents into a shared brain
-- ✅ **Shared evolution**: One agent's improvement becomes every agent's upgrade
-- ✅ **Network effects**: More agents → richer data → faster evolution for every agent
-- ✅ **Easy sharing** — Upload and download evolved skills with one simple command
-- ✅ **Access control** — Choose public, private, or team-only access for each skill
-
-**One agent learns, all agents benefit — collective intelligence at scale.**
-
-### 💰 Token Efficiency
-Smarter agents, dramatically lower costs
-- ✅ **Stop repeating work** → Reuse successful solutions instead of starting from zero each time
-- ✅ **Tasks get cheaper** → As skills improve, similar work costs less and less
-- ✅ **Small updates only** → Fix what's broken, don't rebuild everything
-- ✅ **Real savings**: 4.2× better performance with 46% fewer tokens on real-world tasks, delivering measurable economic value. ([GDPVal](#-benchmark-gdpval))
-
-Do more, spend less — agents that actually save you money over time.
-
----
-
-### The Difference
-
-**❌ Current Agents**
-- Skills degrade silently as tools evolve
-- Failed patterns repeat with no learning mechanism
-- Knowledge remains trapped in individual agents
-
-**✅ OpenSpace-Powered Agents**
-- Multi-layer monitoring catches problems and auto-triggers repairs
-- Successful workflows become reusable, shareable skills
-- When one agent learns something useful, all agents get that knowledge instantly
-
-### 📊 OpenSpace: Turn Your Agent into a Money-Making Coworker
-
-**🎯 Real-World Results That Matter**
-On 50 professional tasks (**📈 [GDPVal Economic Benchmark](#-benchmark-gdpval)**) across 6 industries, OpenSpace agents earn **4.2× more money** than baseline ([ClawWork](https://github.com/HKUDS/ClawWork)) agents using the same backbone LLM (Qwen 3.5-Plus). While cutting 46% of costly tokens through skill evolution.
-
-<div align="center">
-<img src="assets/benchmark_kpi.png" width="100%" alt="GDPVal Benchmark — Key Results" />
-</div>
-
-**💼 These Aren't Toy Problems**
-- Building payroll calculators from complex union contracts
-- Preparing tax returns from 15 scattered PDF documents
-- Drafting legal memoranda on California privacy regulations
-- Creating compliance forms and engineering specifications
-
-**📈 Consistent Wins Across All Fields**
-- Compliance work: +18.5% higher earnings
-- Engineering projects: +8.7% better performance
-- Professional documents: 56% fewer tokens needed
-- Every category improved — no exceptions
-
-<div align="center">
-<img src="assets/benchmark_task_showcase.png" width="100%" alt="GDPVal Benchmark — Task Showcase by Category" />
-</div>
-
-**OpenSpace doesn't just make agents smarter** — it makes them economically viable. Real work, real money, measurable results.
-
-## Use Case for Autonomous System Development with OpenSpace
-
-**🖥️ [My Daily Monitor](showcase/README.md)** — OpenSpace empowers your agent to complete large-scale system development. This personal behavior monitoring system with 20+ live dashboard panels was built entirely by the agent — 60+ skills evolved from scratch through OpenSpace, demonstrating autonomous end-to-end software development capabilities.
-
-<div align="center">
-<img src="assets/my_daily_monitor_dark.png" width="100%" alt="My Daily Monitor – Dark Mode" />
-</div>
-
----
-
-## 📋 Table of Contents
-
-- [⚡ Quick Start](#-quick-start)
-  - [🤖 For Your Agent](#-for-your-agent)
-  - [📊 Local Dashboard](#-local-dashboard)
-- [📈 Benchmark: GDPVal](#-benchmark-gdpval)
-- [📊 Showcase: My Daily Monitor](#-showcase-my-daily-monitor)
-- [🏗️ Framework](#️-framework)
-  - [🧬 Self-Evolution Engine](#-self-evolution-engine)
-- [🔧 Advanced Configuration](#-advanced-configuration)
-  - [🏢 Enterprise / Private Deployment](#-enterprise--private-deployment)
-- [📖 Code Structure](#-code-structure)
-- [🤝 Contribute & Roadmap](#-contribute--roadmap)
-- [🔗 Related Projects](#-related-projects)
-
----
-
-## ⚡ Quick Start
+## Quick Start
 
 ```bash
-git clone https://github.com/HKUDS/OpenSpace.git && cd OpenSpace
+git clone https://github.com/tianhaocui/OpenSpace.git && cd OpenSpace
 pip install -e .
-openspace-setup          # interactive setup — configures LLM, registers with your agents
+openspace-setup
 ```
 
 `openspace-setup` will:
-1. Ask you to choose an LLM provider (Anthropic, OpenAI, DeepSeek, or custom endpoint)
+1. Ask you to choose an LLM provider (Anthropic, OpenAI, DeepSeek, or custom)
 2. Auto-detect your API key from the environment
-3. Register OpenSpace as an MCP server for all installed agents (Claude Code, Codex, Kiro)
-4. Copy host skills to the shared `~/.agents/skills/` hub
+3. Register OpenSpace as an MCP server for Claude Code, Codex, Kiro
+4. Copy host skills to `~/.agents/skills/`
 
-That's it. Your agents can now self-evolve skills, execute complex tasks, and share improvements via Git.
+Done. Your agents now have self-evolving skills.
 
-> [!TIP]
-> **Already have an API key set?** `openspace-setup` detects it automatically — just press Enter to confirm.
+> **Need Python 3.12+.** If your system Python is older, use `python3.13 -m venv .venv && source .venv/bin/activate` first.
 
-> [!TIP]
-> **Slow clone?** Skip the `assets/` folder (~50 MB):
-> ```bash
-> git clone --filter=blob:none --sparse https://github.com/HKUDS/OpenSpace.git
-> cd OpenSpace && git sparse-checkout set '/*' '!assets/'
-> pip install -e .
-> ```
+---
 
-### 🔧 What Gets Configured
+## MCP Tools
 
-After setup, your `.mcp.json` looks like:
+Once registered, your agent has 4 tools:
+
+| Tool | What It Does |
+|---|---|
+| `execute_task` | Delegate a task — auto-selects skills, executes, records workflow |
+| `search_skills` | Search local skill registry |
+| `fix_skill` | Evolve a skill — provide direction, OpenSpace rewrites it |
+| `sync_skills_git` | Pull/push skills from/to Git repos via skillpull |
+
+Your agent decides when to use these. You don't need to trigger them manually.
+
+---
+
+## Skill Evolution
+
+Three ways skills evolve:
+
+**1. Through execute_task** — After task execution, OpenSpace analyzes the result and evolves skills automatically.
+
+**2. Through skill-evolution skill** — Your AI tool evaluates each skill after use and calls `fix_skill` when improvements are needed. You'll see a rating:
+```
+[A] skillpull — accurate and complete, no changes needed
+[B] git-commit — missing amend example → evolving
+```
+
+**3. Manual** — Tell your agent: "evolve the skillpull skill, add X"
+
+Evolved skills auto-push to your team's Git repo. Teammates get improvements on `skillpull update`.
+
+### Webhook Notifications
+
+Get notified when skills evolve. Set `OPENSPACE_NOTIFY_WEBHOOK` in your `.mcp.json` env:
+
+| Platform | Webhook URL |
+|---|---|
+| Feishu | `https://open.feishu.cn/open-apis/bot/v2/hook/<token>` |
+| WeCom | `https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=<key>` |
+| DingTalk | `https://oapi.dingtalk.com/robot/send?access_token=<token>` |
+
+---
+
+## Skill Sync via Git
+
+Share skills with your team:
+
+```bash
+pip install skillpull
+skillpull registry git@github.com:your-org/agent-skills.git
+skillpull --all -f              # pull all skills
+skillpull push                  # push evolved skills
+```
+
+### Project-Specific Skills
+
+Skills can be scoped to projects. Repo structure:
+
+```
+agent-skills/
+├── skills/              # shared across all projects
+├── client-portal/       # only pulled when --project client-portal
+├── linker-pom/          # only pulled when --project linker-pom
+└── livechat/            # only pulled when --project livechat
+```
+
+In each project directory, create `.skillpullrc`:
+```json
+{"registry":"","project":"client-portal"}
+```
+
+Then `skillpull --all -f` pulls shared + project-specific skills.
+
+---
+
+## Configuration
+
+### .mcp.json
 
 ```json
 {
@@ -189,8 +138,8 @@ After setup, your `.mcp.json` looks like:
     "openspace": {
       "command": "openspace-mcp",
       "env": {
-        "ANTHROPIC_API_KEY": "${ANTHROPIC_API_KEY}",
-        "OPENSPACE_MODEL": "anthropic/claude-opus-4-20250514",
+        "ANTHROPIC_API_KEY": "your-key",
+        "OPENSPACE_MODEL": "anthropic/claude-opus-4-6-20250610",
         "OPENSPACE_CLOUD_ENABLED": "false",
         "MCP_USE_ANONYMIZED_TELEMETRY": "false"
       }
@@ -199,365 +148,72 @@ After setup, your `.mcp.json` looks like:
 }
 ```
 
-### 🤖 Available MCP Tools
+### Environment Variables
 
-Once registered, your agent has access to these tools:
-
-| Tool | What It Does |
-|---|---|
-| `execute_task` | Delegate a task to OpenSpace — auto-selects skills, executes, records workflow |
-| `search_skills` | Search local skill registry |
-| `fix_skill` | Manually evolve a skill — provide direction, OpenSpace rewrites it |
-| `sync_skills_git` | Pull/push skills from/to Git repos via skillpull |
-
-### 📦 Skill Sync via Git
-
-Share evolved skills with your team using skillpull:
-
-```bash
-pip install skillpull                          # install CLI
-skillpull registry git@your-server:team/skills.git  # set team repo
-skillpull --all -f                             # pull all skills
-skillpull push                                 # push evolved skills
-```
-
-Skills auto-push to the team repo after evolution — teammates get improvements on their next `skillpull update`.
-
-### 📊 Local Dashboard
-
-Browse skills, track evolution lineage, view execution history.
-
-```bash
-openspace-dashboard --port 7788    # start backend
-cd frontend && npm install && npm run dev   # start frontend (Node.js ≥ 20)
-```
-
-<div align="center">
-<table>
-<tr>
-<td width="50%"><img src="assets/frontend_1.gif" width="100%" alt="Skill Classes" /></td>
-<td width="50%"><img src="assets/frontend_2.gif" width="100%" alt="Skill Records" /></td>
-</tr>
-<tr>
-<td align="center"><sub>Skill Classes — Browse, Search & Sort</sub></td>
-<td align="center"><sub>Cloud — Browse & Discover Skill Records</sub></td>
-</tr>
-<tr>
-<td width="50%"><img src="assets/frontend_3.gif" width="100%" alt="Version Lineage" /></td>
-<td width="50%"><img src="assets/frontend_4.gif" width="100%" alt="Workflow Sessions" /></td>
-</tr>
-<tr>
-<td align="center"><sub>Version Lineage — Skill Evolution Graph</sub></td>
-<td align="center"><sub>Workflow Sessions — Execution History & Metrics</sub></td>
-</tr>
-</table>
-</div>
-
----
-
-## 📈 Benchmark: GDPVal
-
-We evaluate OpenSpace on [GDPVal](https://huggingface.co/datasets/openai/gdpval) — 220 real-world professional tasks spanning 44 occupations — using the [ClawWork](https://github.com/HKUDS/ClawWork) evaluation protocol with identical productivity tools and LLM-based scoring. Our two-phase design (Cold Start → Warm Rerun) demonstrates how accumulated skills reduce token consumption over time.
-
-Fair Benchmark: OpenSpace uses Qwen 3.5-Plus as its backbone LLM — identical to a ClawWork baseline agent — ensuring that performance differences stem purely from skill evolution, not model capabilities.
-
-Real Economic Value: Tasks range from building payroll calculators to preparing tax returns to drafting legal memoranda — the same professional work that generates actual GDP, evaluated on both quality and cost efficiency.
-
-<div align="center">
-<img src="assets/benchmark_income.png" width="100%" alt="GDPVal Benchmark — Income Comparison" />
-</div>
-
-- **4.2× Higher Income** vs ClawWork with the same backbone LLM (Qwen 3.5-Plus)
-- **72.8% Value Capture** — $11,484 earned out of $15,764 task value, outperforming all agents
-- **70.8% Average Quality** — +30pp above the best ClawWork agent (40.8%)
-− **45.9% Token Usage** in Phase 2 vs Phase 1 — better results with dramatically lower costs
-
-<div align="center">
-<img src="assets/benchmark_quality_tokens.png" width="100%" alt="GDPVal Benchmark — Quality & Token Efficiency" />
-</div>
-
-### What Real-World Tasks Can OpenSpace Handle?
-
-The 50 GDPVal tasks span 6 real-world work categories. 
-- **Phase 1 (Cold Start)** runs all 50 tasks sequentially — skills accumulate in a shared database as each task completes.
-- **Phase 2 (Warm Rerun)** re-executes the same 50 tasks with the full evolved skill database from Phase 1.
-
-Income Capture = actual payment earned ÷ maximum possible task value
-
-<div align="center">
-<img src="assets/benchmark_task_showcase.png" width="100%" alt="GDPVal Benchmark — Task Showcase by Category" />
-</div>
-
-## 🎯 Where Evolution Delivers Maximum Impact — And Why:
-
-| Category | Income Δ | Token Δ | Why |
-|---|---|---|---|
-| **📝 Documents & Correspondence** (7) | 71→74% (+3.3pp) | −56% | Polished formal output — California privacy law memoranda, surveillance investigation reports, child support case reports. The `document-gen-fallback` skill family evolved through 13 versions, making structure and error recovery near-automatic. |
-| **📋 Compliance & Form** (11) | 51→70% (+18.5pp) | −51% | Structured PDFs — tax returns from 15 source documents, pharmacy compliance checklists, clinical handoff templates. The PDF skill chain (checklist logic → reportlab layout → verification) evolves once, then all form tasks reuse the full pipeline. |
-| **🎬 Media Production** (3) | 53→58% (+5.8pp) | −46% | Audio/video via Python and ffmpeg — bossa-nova instrumental from drum reference, bass stem editing from 5 tracks, CGI show reel from 13 source videos. Evolved skills encode working ffmpeg flags and codec fallbacks, eliminating sandbox trial-and-error. |
-| **🛠️ Engineering** (4) | 70→78% (+8.7pp) | −43% | Multi-deliverable technical projects — Web3 full-stack (Solidity + React + tests), CNC workcell safety system (report + layout + hardware table), aerospace CFD report. Coordination skills transfer universally across these diverse tasks. |
-| **📊 Spreadsheets** (15) | 63→70% (+7.3pp) | −37% | Functional .xlsx tools — payroll calculators from union contracts, sales forecasts from historical data, pricing models with competitor benchmarking. Spreadsheet patterns (formulas, merged cells, validation) are identical across domains. |
-| **📈 Strategy & Analysis** (10) | 88→89% (+1.0pp) | −32% | Strategic recommendations — supplier negotiation strategies, nonprofit program evaluations, energy trading analysis for a $300M desk. Already highest quality (88%); savings from reusing document structure and multi-file orchestration. |
-
-### What Did Evolution Produce? (165 Skills)
-
-Across 50 Phase 1 tasks, OpenSpace autonomously evolved **165 skills**. The breakthrough insight: these aren't just domain knowledge — they're **resilient execution patterns** and **quality assurance workflows**. The agent learned how to reliably deliver results in an imperfect, real-world environment.
-
-**Key Discovery**: Most skills focus on tool reliability and error recovery, not task-specific knowledge.
-
-<div align="center">
-<img src="assets/benchmark_skill_taxonomy.png" width="100%" alt="GDPVal Benchmark — Evolved Skill Taxonomy" />
-</div>
-
-| Purpose | Count | What It Teaches the Agent |
+| Variable | Required | Description |
 |---|---|---|
-| **File Format I/O** | 44 | PDF extraction fallbacks, DOCX parsing, Excel merged-cell handling, PPTX creation. 32/44 *captured* from real failures — each one is a production bug solved. |
-| **Execution Recovery** | 29 | Layered fallback: sandbox fails → shell → file-write-then-run → heredoc. 28/29 *captured* from actual crashes. The foundation that makes everything else reliable. |
-| **Document Generation** | 26 | End-to-end doc pipeline. `document-gen-fallback` evolved from 1 imported skill into **13 derived versions** — the most deeply iterated skill family. |
-| **Quality Assurance** | 23 | Post-write verification: check Excel row counts, validate PDF pages, proof-gate spreadsheet formulas. Why P2 quality improves — the agent *verifies*, not just produces. |
-| **Task Orchestration** | 17 | Multi-file tracking, ZIP packaging, zero-iteration failure detection. Meta-skills that help across all task types with multiple deliverables. |
-| **Domain Workflow** | 13 | SOAP notes, audio production (**4 generations** from 1 template), video pipelines. Small count but deep evolution within each domain. |
-| **Web & Research** | 11 | SSL/proxy debugging, search fallbacks, JS-heavy page handling. Includes 2 *fixed* skills — web access is inherently unstable. |
-
-**Reproduce experiments, analysis tools, and results**: [`gdpval_bench/README.md`](gdpval_bench/README.md)
+| `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` or `DEEPSEEK_API_KEY` | Yes (one) | LLM API key |
+| `OPENSPACE_MODEL` | No | Auto-detected from API key |
+| `OPENSPACE_LLM_API_BASE` | No | Custom LLM proxy URL |
+| `EMBEDDING_BASE_URL` + `EMBEDDING_API_KEY` | No | Remote embedding (default: local model) |
+| `OPENSPACE_NOTIFY_WEBHOOK` | No | Evolution notification webhook |
+| `OPENSPACE_CLOUD_ENABLED` | No | Default `false` |
+| `MCP_USE_ANONYMIZED_TELEMETRY` | No | Default `false` |
 
 ---
 
-## 📊 Showcase: My Daily Monitor
+## Dashboard
 
-> **Zero human code was written.** 60+ skills evolved from scratch to build a fully working live dashboard.
+Browse skills, track evolution lineage, view execution history:
 
-**My Daily Monitor** is an always-on dashboard streaming processes, servers, news, markets, email, and schedules — with a built-in AI agent.
-
-<div align="center">
-<img src="assets/my_daily_monitor_light.png" width="90%" alt="My Daily Monitor – Light Mode" />
-</div>
-
-### How OpenSpace Built It (From Zero)
-
-| Phase | What Happened | Skills |
-|-------|--------------|--------|
-| 🌱 **Seed** | Analyzed open-source [WorldMonitor](https://github.com/koala73/worldmonitor), extracted reference patterns | 6 initial skills |
-| 🏗️ **Scaffold** | Generated project structure, Vite config, TypeScript setup | +8 skills |
-| 🎨 **Build** | Created 20+ panels with data services, API routes, grid layout | +25 skills |
-| 🔧 **Fix** | Auto-repaired broken TypeScript, API mismatches, CSS conflicts | +12 FIX evolutions |
-| 🧬 **Evolve** | Derived enhanced patterns, merged complementary skills | +15 DERIVED skills |
-| 📦 **Capture** | Extracted reusable patterns from successful executions | +8 CAPTURED skills |
-
-### 📈 Skill Evolution Graph
-
-<div align="center">
-<img src="assets/my_daily_monitor_evograph.png" width="90%" alt="Skill Evolution Graph" />
-</div>
-
-> Each node is a skill that OpenSpace learned, extracted, or refined. The full evolution history is open-sourced in [`showcase/.openspace/openspace.db`](showcase/.openspace/openspace.db) — load it in any SQLite browser to explore lineage, diffs, and quality metrics.
-
-**Full details**: [`showcase/README.md`](showcase/README.md)
+```bash
+openspace-dashboard --port 7788
+cd frontend && npm install && npm run dev    # Node.js >= 20
+```
 
 ---
 
-## 🏗️ OpenSpace's Framework
-
-<div align="center">
-<img src="assets/framework.png" width="90%" alt="OpenSpace Framework" />
-</div>
-
-### 🧬 Self-Evolution Engine
-
-The core of OpenSpace. Skills aren't static files — they're living entities that automatically select, apply, monitor, analyze, and evolve themselves.
-
-#### 🔄 Autonomous & Continuous Evolution
-
-- **Full Lifecycle Management**: From discovery to application to evolution — all without human intervention. OpenSpace completes tasks regardless of whether matching skills exist.
-
-**Three Evolution Modes**:
-- 🔧 FIX — Repair broken or outdated instructions in-place. Same skill, new version.
-- 🚀 DERIVED — Create enhanced or specialized versions from parent skills. New skill directory, coexists with parents.
-- ✨ CAPTURED — Extract novel reusable patterns from successful executions. Brand new skill, no parent.
-
-**Three Independent Triggers**: Multiple lines of defense against skill degradation — both successful and failed executions drive evolution.
-- **📈 Post-Execution Analysis** — Runs after every task. Analyzes full recordings and suggests FIX/DERIVED/CAPTURED for involved skills.
-- **⚠️ Tool Degradation** — When tool success rates drop, quality monitor finds all dependent skills and batch-evolves them.
-- **📊 Metric Monitor** — Periodically scans skill health metrics (applied rate, completion rate, fallback rate) and evolves underperformers.
-
-#### 📊 Full-Stack Quality Monitoring
-Multi-Layer Tracking: Quality monitoring covers the entire execution stack — from high-level workflows to individual tool calls:
-- **🎯 Skills** — applied rate, completion rate, effective rate, fallback rate
-- **🔨 Tool Calls** — success rate, latency, flagged issues
-- **⚡ Code Execution** — execution status, error patterns
-
-**Cascade Evolution**: When any component degrades — skill workflow or single tool call — evolution automatically triggers for all upstream dependent skills, maintaining system-wide coherence.
-
-#### 🔧 Intelligent & Safe Evolution
-**🤖 Autonomous Evolution**: Each evolution explores the codebase, discovers root causes, and decides fixes autonomously — gathering real evidence before making changes, not generating blindly.
-
-**⚡ Diff-Based & Token-Efficient**: Produces minimal, targeted diffs rather than full rewrites, with automatic retry on failure. Every version stored in a version DAG with full lineage tracking.
-
-**🛡️ Built-in Safeguards**:
-- Confirmation gates reduce false-positive triggers
-- Anti-loop guards prevent runaway evolution cycles
-- Safety checks flag dangerous patterns (prompt injection, credential exfiltration, reverse shells, pipe-to-shell)
-- Evolved skills pass safety validation before activation (blocked patterns abort evolution)
-- `OPENSPACE_SAFETY_LEVEL=strict` mode blocks all suspicious patterns, not just confirmed threats
-- Evolved skills are validated before replacing predecessors
-
-**🌐 Collaborative Skill Community**
-A collaborative registry where agents share evolved skills. When one agent evolves an improvement, every connected agent can discover, import, and build on it — turning individual progress into collective intelligence.
-
-- **🔐 Flexible Sharing**: Share skills within teams via Git repos using skillpull. Every evolution is lineage-tracked with full diffs.
-
----
-
-## 🔧 Advanced Configuration
-
-For most users, [Quick Start](#-quick-start) is all you need. For advanced options (environment variables, execution modes, security policies, etc.), see [`openspace/config/README.md`](openspace/config/README.md).
-
-### 🏢 Enterprise / Private Deployment
-
-OpenSpace supports fully private deployment with no cloud dependency. Run `openspace-setup` and all external connections are disabled by default.
-
-| Capability | Configuration |
-|---|---|
-| **LLM** | Set during `openspace-setup` — Anthropic, OpenAI, DeepSeek, or custom endpoint |
-| **Embedding** | Local model by default. Optional: `EMBEDDING_BASE_URL` + `EMBEDDING_API_KEY` |
-| **Skill sync** | Git-based via `skillpull` — point at your internal Git repo |
-| **Safety** | `OPENSPACE_SAFETY_LEVEL=strict` blocks all suspicious patterns |
-| **Cloud** | Disabled by default (`OPENSPACE_CLOUD_ENABLED=false`) |
-| **Telemetry** | Disabled by default (`MCP_USE_ANONYMIZED_TELEMETRY=false`) |
-
----
-
-<a id="-code-structure"></a>
 <details>
-<summary><b>📖 Code Structure</b></summary>
-
-> **Legend**: ⚡ Core modules &nbsp;|&nbsp; 🧬 Skill evolution &nbsp;|&nbsp; 🌐 Cloud &nbsp;|&nbsp; 🔧 Supporting modules
+<summary><b>Code Structure</b></summary>
 
 ```
-OpenSpace/
-├── openspace/
-│   ├── tool_layer.py                     # OpenSpace main class & OpenSpaceConfig
-│   ├── mcp_server.py                     # MCP Server (4 tools for your agent)
-│   ├── dashboard_server.py               # Web dashboard API server
-│   │
-│   ├── ⚡ agents/                         # Agent System
-│   │   ├── base.py                       # Base agent class
-│   │   └── grounding_agent.py            # Execution agent (tool calling, iteration, skill injection)
-│   │
-│   ├── ⚡ grounding/                      # Unified Backend System
-│   │   ├── core/
-│   │   │   ├── grounding_client.py       # Unified interface across all backends
-│   │   │   ├── search_tools.py           # Smart Tool RAG (BM25 + embedding + LLM)
-│   │   │   ├── quality/                  # Tool quality tracking & self-evolution
-│   │   │   ├── security/                 # Policies, sandboxing, E2B
-│   │   │   ├── system/                   # System-level provider & tools
-│   │   │   ├── transport/                # Connectors & task managers
-│   │   │   └── tool/                     # Tool abstraction (base, local, remote)
-│   │   └── backends/
-│   │       ├── shell/                    # Shell command execution
-│   │       ├── gui/                      # Anthropic Computer Use
-│   │       ├── mcp/                      # Model Context Protocol (stdio, HTTP, WebSocket)
-│   │       └── web/                      # Web search & browsing
-│   │
-│   ├── 🧬 skill_engine/                  # Self-Evolving Skill System
-│   │   ├── registry.py                   # Discovery, BM25+embedding pre-filter, LLM selection
-│   │   ├── analyzer.py                   # Post-execution analysis (agent loop + tool access)
-│   │   ├── evolver.py                    # FIX / DERIVED / CAPTURED evolution (3 triggers)
-│   │   ├── patch.py                      # Multi-file FULL / DIFF / PATCH application
-│   │   ├── store.py                      # SQLite persistence, version DAG, quality metrics
-│   │   ├── skill_ranker.py               # BM25 + embedding hybrid ranking
-│   │   ├── retrieve_tool.py              # Skill retrieval tool for agents
-│   │   ├── fuzzy_match.py                # Fuzzy matching for skill discovery
-│   │   ├── conversation_formatter.py     # Format execution history for analysis
-│   │   ├── skill_utils.py                # Shared skill utilities
-│   │   └── types.py                      # SkillRecord, SkillLineage, EvolutionSuggestion
-│   │
-│   ├── 🌐 cloud/                         # Skill Search & Embedding
-│   │   ├── search.py                     # Hybrid search engine (local)
-│   │   ├── embedding.py                  # Embedding generation for skill search
-│   │   └── cli/                          # CLI tools (skillpull_sync)
-│   │
-│   ├── 💬 communication/                  # Multi-Channel Communication Gateway
-│   │   ├── gateway.py                    # Message routing, session management, reply dispatch
-│   │   ├── adapters/                     # Platform adapters (WhatsApp, Feishu)
-│   │   ├── bridges/                      # Non-Python runtimes (WhatsApp Baileys bridge)
-│   │   ├── config.py                     # Communication config loader
-│   │   ├── session_store.py              # Per-channel session persistence
-│   │   └── types.py                      # ChannelMessage, ChannelSource, SendResult
-│   │
-│   ├── 🔧 platform/                      # Platform abstraction (system info, screenshots)
-│   ├── 🔧 host_detection/                # Auto-detect nanobot / openclaw / hermes credentials
-│   ├── 🔧 host_skills/                   # SKILL.md definitions for agent integration
-│   │   ├── delegate-task/SKILL.md        # Teaches agent: execute, fix, upload
-│   │   └── skill-discovery/SKILL.md      # Teaches agent: search & discover skills
-│   ├── 🔧 prompts/                       # LLM prompt templates (grounding + skill engine)
-│   ├── 🔧 llm/                           # LiteLLM wrapper with retry & rate limiting
-│   ├── 🔧 config/                        # Layered configuration system
-│   ├── 🔧 local_server/                  # GUI/Shell backend Flask server (server mode)
-│   ├── 🔧 recording/                     # Execution recording, screenshots & video capture
-│   ├── 🔧 utils/                         # Logging, UI, telemetry
-│   └── 📦 skills/                        # Built-in skills (lowest priority, user can add here)
-│
-├── frontend/                             # Dashboard UI (React + Tailwind)
-├── gdpval_bench/                         # GDPVal benchmark experiments & results
-├── showcase/                             # My Daily Monitor (60+ evolved skills)
-│   ├── my-daily-monitor/                 # The full app (zero human code)
-│   └── skills/                           # 60+ evolved skills with full lineage
-├── .openspace/                           # Runtime: embedding cache + skill DB
-└── logs/                                 # Execution logs & recordings
+openspace/
+├── mcp_server.py              # MCP Server (4 tools)
+├── tool_layer.py              # Orchestration engine
+├── setup.py                   # openspace-setup CLI
+├── dashboard_server.py        # Dashboard API
+├── agents/                    # Agent framework + GroundingAgent
+├── grounding/
+│   ├── core/                  # Tool search, quality tracking, security
+│   └── backends/
+│       ├── shell/             # Shell command execution
+│       └── mcp/               # MCP server connections
+├── skill_engine/              # Registry, analyzer, evolver, store
+├── host_detection/            # LLM credential resolution (nanobot/openclaw/hermes)
+├── host_skills/               # Built-in skills (delegate-task, skill-discovery, skill-evolution)
+├── llm/                       # LiteLLM wrapper
+├── cloud/cli/                 # skillpull Git sync
+└── config/                    # Configuration system
 ```
+
+Entry points:
+- `openspace-mcp` — MCP Server
+- `openspace-setup` — Interactive setup
+- `openspace-dashboard` — Dashboard UI
+- `openspace-skillpull` — Git skill sync CLI
 
 </details>
 
 ---
 
-## 🤝 Contribute & Roadmap
+## License
 
-We welcome contributions! OpenSpace today evolves *how to do X*. The next frontier: **evolving how agents organize doing X together**. 
-
-Group infrastructure (visibility, sharing, permissions) is already live. What comes next:
-
-- [ ] **[Kanban](https://github.com/BloopAI/vibe-kanban)-style orchestration** — Shared task board with skill-aware scheduling; scheduling itself evolves
-- [ ] **Collaboration pattern evolution** — Decomposition, handoff, prioritization strategies captured and improved from completed tasks
-- [ ] **Role emergence** — Agents develop role profiles through practice, not configuration
-- [ ] **Cross-group pattern transfer** — Coordination patterns discovered by one group available to others via cloud registry
-
----
-
-## 🔗 Related Projects
-
-OpenSpace builds upon the following open-source projects. We sincerely thank their authors and contributors:
-
-- **[AnyTool](https://github.com/HKUDS/AnyTool)** — Plug-and-play universal tool-use layer for any AI agent
-- **[ClawWork](https://github.com/HKUDS/ClawWork)** - Transforms AI assistants into true AI coworkers
-- **[WorldMonitor](https://github.com/koala73/worldmonitor)** - Real-time global intelligence dashboard
+MIT
 
 ---
 
 <div align="center">
 
-## ⭐ Star History
-
-If you find OpenSpace helpful, please consider giving us a star! ⭐
-
-<div align="center">
-  <a href="https://star-history.com/#HKUDS/OpenSpace&Date">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=HKUDS/OpenSpace&type=Date&theme=dark" />
-      <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=HKUDS/OpenSpace&type=Date" />
-      <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=HKUDS/OpenSpace&type=Date" />
-    </picture>
-  </a>
-</div>
-
-**🧬 Make You Agent Self-Evolve · 🌐 A Community That Grows Together · 💰 Fewer Tokens, Smarter Agents**
+Built on [OpenSpace](https://github.com/HKUDS/OpenSpace) by HKUDS.
 
 </div>
-
----
-
-<p align="center">
-  <em> ❤️ Thanks for visiting ✨ OpenSpace!</em><br><br>
-  <img src="https://visitor-badge.laobi.icu/badge?page_id=HKUDS.OpenSpace&style=for-the-badge&color=00d4ff"
-  alt="Views">
-</p>
