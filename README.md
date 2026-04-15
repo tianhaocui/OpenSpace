@@ -55,12 +55,13 @@ Done. Your agents now have self-evolving skills.
 
 ## MCP Tools
 
-Once registered, your agent has 4 tools:
+Once registered, your agent has 5 tools:
 
 | Tool | What It Does |
 |---|---|
 | `execute_task` | Delegate a task — auto-selects skills, executes, records workflow |
 | `search_skills` | Search local skill registry |
+| `report_skill_usage` | Report external skill usage for quality tracking and auto-evolution |
 | `fix_skill` | Evolve a skill — provide direction, OpenSpace rewrites it |
 | `sync_skills_git` | Pull/push skills from/to Git repos via skillpull |
 
@@ -74,13 +75,24 @@ Three ways skills evolve:
 
 **1. Through execute_task** — After task execution, OpenSpace analyzes the result and evolves skills automatically.
 
-**2. Through skill-evolution skill** — Your AI tool evaluates each skill after use and calls `fix_skill` when improvements are needed. You'll see a rating:
+**2. Through skill-evolution skill** — Your AI tool evaluates each skill after use, reports usage via `report_skill_usage`, and calls `fix_skill` when improvements are needed. Works across Claude Code, Codex, and Kiro. You'll see a rating:
 ```
 [A] skillpull — accurate and complete, no changes needed
 [B] git-commit — missing amend example → evolving
 ```
 
-**3. Manual** — Tell your agent: "evolve the skillpull skill, add X"
+**3. Through report_skill_usage** — Track skill quality from any tool. Accumulates metrics (selections, completions, fallbacks) and triggers auto-evolution when thresholds are met.
+
+```bash
+# MCP tool (Claude Code, Kiro)
+report_skill_usage(skill_name="git-commit", task_completed=true, skill_applied=true)
+
+# CLI (Codex, or any shell)
+openspace-report git-commit
+openspace-report git-commit --failed --note "pre-commit hook rejected"
+```
+
+**4. Manual** — Tell your agent: "evolve the skillpull skill, add X"
 
 Evolved skills auto-push to your team's Git repo. Teammates get improvements on `skillpull update`.
 
@@ -178,7 +190,7 @@ cd frontend && npm install && npm run dev    # Node.js >= 20
 
 ```
 openspace/
-├── mcp_server.py              # MCP Server (4 tools)
+├── mcp_server.py              # MCP Server (5 tools) + openspace-report CLI
 ├── tool_layer.py              # Orchestration engine
 ├── setup.py                   # openspace-setup CLI
 ├── dashboard_server.py        # Dashboard API
@@ -201,6 +213,7 @@ Entry points:
 - `openspace-setup` — Interactive setup
 - `openspace-dashboard` — Dashboard UI
 - `openspace-skillpull` — Git skill sync CLI
+- `openspace-report` — Report skill usage from CLI (for Codex and other non-MCP tools)
 
 </details>
 
