@@ -81,6 +81,7 @@ openspace-dashboard = "openspace.dashboard_server:main"
 openspace-gateway = "openspace.communication.gateway:run_main"
 openspace-setup = "openspace.setup:main"
 openspace-skillpull = "openspace.cloud.cli.skillpull_sync:main"
+openspace-report = "openspace.mcp_server:run_report_usage"
 
 [tool.setuptools]
 packages = {find = {where = ["."], include = ["openspace*"]}}

@@ -353,7 +353,7 @@ def _json_error(error: Any, **extra) -> str:
     return json.dumps({"error": str(error), **extra}, ensure_ascii=False)
 
 
-# MCP Tools (4 tools)
+# MCP Tools (5 tools)
 @mcp.tool()
 async def execute_task(
     task: str,
@@ -482,6 +482,138 @@ async def search_skills(
     except Exception as e:
         logger.error(f"search_skills failed: {e}", exc_info=True)
         return _json_error(e)
+
+
+async def _report_skill_usage_core(
+    skill_name: str,
+    skill_dir: str | None = None,
+    task_completed: bool = True,
+    skill_applied: bool = True,
+    note: str = "",
+) -> dict:
+    """Core logic for reporting skill usage. Returns a result dict.
+
+    Shared by the MCP tool and the CLI entry point.
+    """
+    from datetime import datetime
+    from openspace.skill_engine.types import ExecutionAnalysis, SkillJudgment
+    import uuid
+
+    store = _get_store()
+
+    # Resolve skill_id from name or path
+    skill_id = None
+    versions = store.get_versions(skill_name)
+    if versions:
+        active = [v for v in versions if v.is_active]
+        rec = active[0] if active else versions[-1]
+        skill_id = rec.skill_id
+    elif skill_dir:
+        rec = store.load_record_by_path(skill_dir)
+        if rec:
+            skill_id = rec.skill_id
+
+    if not skill_id:
+        raise ValueError(
+            f"Skill '{skill_name}' not found in OpenSpace. "
+            f"Register it first via execute_task(skill_dirs=[...]) or fix_skill()."
+        )
+
+    # Build and record analysis
+    analysis = ExecutionAnalysis(
+        task_id=f"external-{uuid.uuid4().hex[:12]}",
+        timestamp=datetime.now(),
+        task_completed=task_completed,
+        execution_note=note or f"External usage of {skill_name}",
+        skill_judgments=[
+            SkillJudgment(
+                skill_id=skill_id,
+                skill_applied=skill_applied,
+                note=note,
+            ),
+        ],
+    )
+    await store.record_analysis(analysis)
+
+    # Reload record to get updated stats
+    updated = store.load_record(skill_id)
+    stats = {}
+    if updated:
+        stats = {
+            "total_selections": updated.total_selections,
+            "total_applied": updated.total_applied,
+            "total_completions": updated.total_completions,
+            "total_fallbacks": updated.total_fallbacks,
+            "applied_rate": updated.applied_rate,
+            "completion_rate": updated.completion_rate,
+            "effective_rate": updated.effective_rate,
+        }
+
+    # Trigger metric check if enough data accumulated
+    evolve_triggered = False
+    if updated and updated.total_selections >= 5:
+        try:
+            openspace = await _get_openspace()
+            evolver = openspace._skill_evolver
+            if evolver:
+                asyncio.get_event_loop().create_task(
+                    evolver.process_metric_check(min_selections=5)
+                )
+                evolve_triggered = True
+        except Exception:
+            pass  # best-effort
+
+    logger.info(
+        f"report_skill_usage: {skill_name} ({skill_id}) "
+        f"applied={skill_applied} completed={task_completed}"
+    )
+
+    return {
+        "status": "recorded",
+        "skill_id": skill_id,
+        "skill_name": skill_name,
+        "quality": stats,
+        "evolve_triggered": evolve_triggered,
+    }
+
+
+@mcp.tool()
+async def report_skill_usage(
+    skill_name: str,
+    skill_dir: str | None = None,
+    task_completed: bool = True,
+    skill_applied: bool = True,
+    note: str = "",
+) -> str:
+    """Report external skill usage to OpenSpace's quality tracking system.
+
+    Use this when a skill was executed outside of ``execute_task``
+    (e.g. via Claude Code's native Skill system) and you want
+    OpenSpace to track the usage for quality metrics and auto-evolution.
+
+    Args:
+        skill_name: Skill name (e.g. "git-commit"). Resolved to skill_id
+                    via the store's version history.
+        skill_dir: Optional path to the skill directory. Used as fallback
+                   if skill_name resolution fails.
+        task_completed: Whether the task completed successfully (default True).
+        skill_applied: Whether the skill was actually applied (default True).
+        note: Optional note about the execution.
+    """
+    try:
+        result = await _report_skill_usage_core(
+            skill_name=skill_name,
+            skill_dir=skill_dir,
+            task_completed=task_completed,
+            skill_applied=skill_applied,
+            note=note,
+        )
+        return _json_ok(result)
+    except ValueError as e:
+        return _json_error(str(e))
+    except Exception as e:
+        logger.error(f"report_skill_usage failed: {e}", exc_info=True)
+        return _json_error(e, status="error")
 
 
 @mcp.tool()
@@ -740,3 +872,44 @@ def run_mcp_server() -> None:
 
 if __name__ == "__main__":
     run_mcp_server()
+
+
+def run_report_usage() -> None:
+    """Console-script entry point for ``openspace-report``.
+
+    Usage:
+        openspace-report <skill_name> [--failed] [--not-applied] [--note "..."]
+        openspace-report git-commit
+        openspace-report git-commit --failed --note "hook rejected the commit"
+    """
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description="Report skill usage to OpenSpace quality tracking",
+        prog="openspace-report",
+    )
+    parser.add_argument("skill_name", help="Skill name (e.g. git-commit)")
+    parser.add_argument("--skill-dir", default=None, help="Skill directory path (fallback)")
+    parser.add_argument("--failed", action="store_true", help="Mark task as failed")
+    parser.add_argument("--not-applied", action="store_true", help="Mark skill as not applied")
+    parser.add_argument("--note", default="", help="Optional note")
+    args = parser.parse_args()
+
+    async def _run():
+        try:
+            result = await _report_skill_usage_core(
+                skill_name=args.skill_name,
+                skill_dir=args.skill_dir,
+                task_completed=not args.failed,
+                skill_applied=not args.not_applied,
+                note=args.note,
+            )
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+        except ValueError as e:
+            print(json.dumps({"error": str(e)}, ensure_ascii=False), file=sys.stderr)
+            sys.exit(1)
+        except Exception as e:
+            print(json.dumps({"error": str(e)}, ensure_ascii=False), file=sys.stderr)
+            sys.exit(1)
+
+    asyncio.run(_run())

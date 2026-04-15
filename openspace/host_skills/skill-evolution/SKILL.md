@@ -34,7 +34,35 @@ After the task is done, reflect on each skill you used:
 | C | Skill was partially wrong or missing critical steps |
 | F | Skill was actively harmful or completely outdated |
 
-### 3. Act on the score
+### 3. Report usage to OpenSpace (ALWAYS, for every skill)
+
+Regardless of score, report each skill's usage so OpenSpace can track quality metrics and trigger auto-evolution. Use whichever method is available in your environment:
+
+**Option 1 — MCP tool** (Claude Code, Kiro, or any MCP-capable client):
+```
+report_skill_usage(
+  skill_name="<skill-name>",
+  task_completed=true/false,
+  skill_applied=true/false,
+  note="<optional: brief note on what happened>"
+)
+```
+
+**Option 2 — CLI** (Codex, or any environment with shell access):
+```bash
+openspace-report <skill-name>                    # success
+openspace-report <skill-name> --failed           # task failed
+openspace-report <skill-name> --not-applied      # skill was loaded but not followed
+openspace-report <skill-name> --note "details"   # with note
+```
+
+Map scores to parameters:
+- **Score A**: `task_completed=true, skill_applied=true`
+- **Score B**: `task_completed=true, skill_applied=true, note="<what was suboptimal>"`
+- **Score C**: `task_completed=true/false, skill_applied=true, note="<what was wrong>"`
+- **Score F**: `task_completed=false, skill_applied=false, note="<why it failed>"`
+
+### 4. Act on the score
 
 **Score A** — Do nothing. The skill is fine.
 
