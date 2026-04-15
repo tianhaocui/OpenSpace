@@ -161,3 +161,77 @@ class TestEvolutionSuggestionConstruction:
         assert "API 404" in suggestion.direction
         assert "timeout" in suggestion.direction
         assert "wrong endpoint" in suggestion.direction
+
+
+class TestConsecutiveNotesDetection:
+    """Test the consecutive-notes logic for Score B/C (效果不好) scenarios."""
+
+    @staticmethod
+    def _should_early_evolve_notes(
+        skill_id: str,
+        skill_applied: bool,
+        note: str,
+        total_selections: int,
+        recent_analyses: list[ExecutionAnalysis],
+    ) -> bool:
+        """Mirror the consecutive-notes check from mcp_server.py."""
+        if not (skill_applied and note and total_selections >= 3):
+            return False
+        if len(recent_analyses) < 3:
+            return False
+        return all(
+            any(
+                j.note and j.skill_applied
+                for j in a.skill_judgments
+                if j.skill_id == skill_id
+            )
+            for a in recent_analyses[-3:]
+        )
+
+    def test_three_consecutive_notes_triggers(self):
+        sid = "test-skill-note-001"
+        analyses = [
+            _make_analysis(sid, task_completed=True, note="API endpoint outdated"),
+            _make_analysis(sid, task_completed=True, note="missing retry logic"),
+            _make_analysis(sid, task_completed=True, note="wrong auth header format"),
+        ]
+        assert self._should_early_evolve_notes(
+            sid, skill_applied=True, note="wrong auth header format",
+            total_selections=3, recent_analyses=analyses,
+        )
+
+    def test_mixed_notes_and_no_notes_does_not_trigger(self):
+        sid = "test-skill-note-002"
+        analyses = [
+            _make_analysis(sid, task_completed=True, note="issue 1"),
+            _make_analysis(sid, task_completed=True, note=""),  # Score A, no note
+            _make_analysis(sid, task_completed=True, note="issue 2"),
+        ]
+        assert not self._should_early_evolve_notes(
+            sid, skill_applied=True, note="issue 2",
+            total_selections=3, recent_analyses=analyses,
+        )
+
+    def test_not_applied_does_not_trigger(self):
+        sid = "test-skill-note-003"
+        analyses = [
+            _make_analysis(sid, task_completed=True, skill_applied=False, note="n1"),
+            _make_analysis(sid, task_completed=True, skill_applied=False, note="n2"),
+            _make_analysis(sid, task_completed=True, skill_applied=False, note="n3"),
+        ]
+        assert not self._should_early_evolve_notes(
+            sid, skill_applied=True, note="n3",
+            total_selections=3, recent_analyses=analyses,
+        )
+
+    def test_no_note_in_current_report_does_not_trigger(self):
+        sid = "test-skill-note-004"
+        analyses = [
+            _make_analysis(sid, task_completed=True, note="issue 1"),
+            _make_analysis(sid, task_completed=True, note="issue 2"),
+            _make_analysis(sid, task_completed=True, note="issue 3"),
+        ]
+        assert not self._should_early_evolve_notes(
+            sid, skill_applied=True, note="",  # current report has no note
+            total_selections=3, recent_analyses=analyses,
+        )

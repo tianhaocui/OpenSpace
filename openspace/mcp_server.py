@@ -597,6 +597,54 @@ async def _report_skill_usage_core(
             except Exception:
                 pass  # best-effort
 
+    # Fast-path 2: consecutive notes → skill has persistent quality issues
+    # Score B/C reports have task_completed=true but carry a note describing
+    # what was suboptimal.  3 consecutive noted reports = clear signal.
+    if (not evolve_triggered and skill_applied and note
+            and updated and updated.total_selections >= 3):
+        recent_analyses = store.load_analyses(skill_id=skill_id, limit=3)
+        consecutive_notes = (
+            len(recent_analyses) >= 3
+            and all(
+                any(j.note and j.skill_applied
+                    for j in a.skill_judgments if j.skill_id == skill_id)
+                for a in recent_analyses[-3:]
+            )
+        )
+        if consecutive_notes:
+            from openspace.skill_engine.types import EvolutionSuggestion, EvolutionType
+            notes = [
+                j.note for a in recent_analyses[-3:]
+                for j in a.skill_judgments
+                if j.skill_id == skill_id and j.note
+            ]
+            analysis.evolution_suggestions = [
+                EvolutionSuggestion(
+                    evolution_type=EvolutionType.FIX,
+                    target_skill_ids=[skill_id],
+                    direction=(
+                        f"Skill has persistent quality issues "
+                        f"(3 consecutive reports with notes). "
+                        f"Issues: {'; '.join(notes[-3:])}"
+                    ),
+                ),
+            ]
+            try:
+                openspace = await _get_openspace()
+                evolver = openspace._skill_evolver
+                if evolver:
+                    evolver.schedule_background(
+                        evolver.process_analysis(analysis),
+                        label=f"early_fix_notes_{skill_id}",
+                    )
+                    evolve_triggered = True
+                    logger.info(
+                        f"report_skill_usage: early evolution triggered for "
+                        f"'{skill_name}' (3 consecutive noted reports)"
+                    )
+            except Exception:
+                pass  # best-effort
+
     # Trigger metric check if enough data accumulated (standard path)
     if not evolve_triggered and updated and updated.total_selections >= 5:
         try:
