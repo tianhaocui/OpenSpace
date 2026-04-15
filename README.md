@@ -45,7 +45,8 @@ openspace-setup
 1. Ask you to choose an LLM provider (Anthropic, OpenAI, DeepSeek, or custom)
 2. Auto-detect your API key from the environment
 3. Register OpenSpace as an MCP server for Claude Code, Codex, Kiro
-4. Copy host skills to `~/.agents/skills/`
+4. Configure Stop hooks for auto skill evolution (Codex + Claude Code)
+5. Copy host skills to `~/.agents/skills/`
 
 Done. Your agents now have self-evolving skills.
 
@@ -75,13 +76,28 @@ Three ways skills evolve:
 
 **1. Through execute_task** — After task execution, OpenSpace analyzes the result and evolves skills automatically.
 
-**2. Through skill-evolution skill** — Your AI tool evaluates each skill after use, reports usage via `report_skill_usage`, and calls `fix_skill` when improvements are needed. Works across Claude Code, Codex, and Kiro. You'll see a rating:
+**2. Through Stop hooks (Codex + Claude Code)** — A Stop hook runs at session end, parses the transcript, extracts skill evaluations (`[A/B/C/F]` scores), and reports usage via `openspace-report`. No agent cooperation needed — fully deterministic.
+
+```
+Session ends → Stop hook parses transcript → extracts [A/B/C/F] evaluations
+  → Score B/C: openspace-report --note "specific issue"
+  → Score F:   openspace-report --failed --note "reason"
+  → Score A:   openspace-report (count only)
+```
+
+`openspace-setup` auto-configures hooks for both Codex (`~/.codex/hooks.json`) and Claude Code (`~/.claude/settings.json`).
+
+**3. Through skill-evolution skill** — Your AI tool evaluates each skill after use, reports usage via `report_skill_usage`, and calls `fix_skill` when improvements are needed. Works across Claude Code, Codex, and Kiro. You'll see a rating:
 ```
 [A] skillpull — accurate and complete, no changes needed
 [B] git-commit — missing amend example → evolving
 ```
 
-**3. Through report_skill_usage** — Track skill quality from any tool. Accumulates metrics (selections, completions, fallbacks) and triggers auto-evolution when thresholds are met.
+**4. Through report_skill_usage** — Track skill quality from any tool. Accumulates metrics and triggers auto-evolution:
+
+- **3 consecutive failures** → immediate evolution (bypasses the 5-use threshold)
+- **3 consecutive noted reports** (Score B/C) → immediate evolution
+- **5+ uses** → metric-based evolution check (fallback rate, completion rate, effectiveness)
 
 ```bash
 # MCP tool (Claude Code, Kiro)
@@ -92,7 +108,7 @@ openspace-report git-commit
 openspace-report git-commit --failed --note "pre-commit hook rejected"
 ```
 
-**4. Manual** — Tell your agent: "evolve the skillpull skill, add X"
+**5. Manual** — Tell your agent: "evolve the skillpull skill, add X"
 
 Evolved skills auto-push to your team's Git repo. Teammates get improvements on `skillpull update`.
 
@@ -192,8 +208,9 @@ cd frontend && npm install && npm run dev    # Node.js >= 20
 openspace/
 ├── mcp_server.py              # MCP Server (5 tools) + openspace-report CLI
 ├── tool_layer.py              # Orchestration engine
-├── setup.py                   # openspace-setup CLI
+├── setup.py                   # openspace-setup CLI (MCP + hooks auto-config)
 ├── dashboard_server.py        # Dashboard API
+├── codex_hooks/               # Stop hook for Codex + Claude Code auto-evolution
 ├── agents/                    # Agent framework + GroundingAgent
 ├── grounding/
 │   ├── core/                  # Tool search, quality tracking, security
