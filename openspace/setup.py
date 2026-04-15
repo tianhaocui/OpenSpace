@@ -19,6 +19,7 @@ from pathlib import Path
 from openspace.host_detection.skill_dirs import _SHARED_HUB as SHARED_SKILLS_HUB
 
 HOST_SKILLS_DIR = Path(__file__).resolve().parent / "host_skills"
+CODEX_HOOKS_DIR = Path(__file__).resolve().parent / "codex_hooks"
 
 MCP_ENV = {
     "OPENSPACE_CLOUD_ENABLED": "false",
@@ -100,6 +101,141 @@ def setup_claude_code(mcp_cmd: str) -> bool:
 
 def setup_codex(mcp_cmd: str) -> bool:
     return _setup_cli_tool("codex", "Codex", mcp_cmd, "--env")
+
+
+def setup_codex_hooks() -> bool:
+    """Enable Codex event hooks and install the OpenSpace stop hook."""
+    if not _has_cmd("codex"):
+        return False
+
+    codex_home = Path.home() / ".codex"
+    if not codex_home.exists():
+        return False
+
+    # 1. Enable features.codex_hooks in config.toml
+    config_path = codex_home / "config.toml"
+    if config_path.exists():
+        content = config_path.read_text(encoding="utf-8")
+        if "codex_hooks" not in content:
+            # Append or insert into [features] section
+            if "[features]" in content:
+                content = content.replace(
+                    "[features]", "[features]\ncodex_hooks = true", 1
+                )
+            else:
+                content += "\n[features]\ncodex_hooks = true\n"
+            config_path.write_text(content, encoding="utf-8")
+            _print("OK", "Codex: enabled features.codex_hooks in config.toml")
+    else:
+        config_path.write_text(
+            "[features]\ncodex_hooks = true\n", encoding="utf-8"
+        )
+        _print("OK", "Codex: created config.toml with features.codex_hooks")
+
+    # 2. Copy stop_hook.py to ~/.codex/openspace/
+    hook_script_src = CODEX_HOOKS_DIR / "stop_hook.py"
+    if not hook_script_src.exists():
+        _print("!!", "Codex: stop_hook.py not found in package")
+        return False
+
+    hook_dest_dir = codex_home / "openspace"
+    hook_dest_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(hook_script_src, hook_dest_dir / "stop_hook.py")
+
+    # 3. Write/merge hooks.json
+    hooks_path = codex_home / "hooks.json"
+    hook_command = f"python3 {hook_dest_dir / 'stop_hook.py'}"
+
+    openspace_hook_entry = {
+        "type": "command",
+        "command": hook_command,
+        "statusMessage": "Reporting skill usage to OpenSpace...",
+    }
+
+    existing: dict = {}
+    if hooks_path.exists():
+        try:
+            existing = json.loads(hooks_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    hooks = existing.setdefault("hooks", {})
+    stop_groups = hooks.setdefault("Stop", [])
+
+    # Check if OpenSpace hook already registered
+    already = False
+    for group in stop_groups:
+        for h in group.get("hooks", []):
+            if "openspace" in h.get("command", "").lower():
+                already = True
+                h["command"] = hook_command  # update path
+                break
+
+    if not already:
+        stop_groups.append({"hooks": [openspace_hook_entry]})
+
+    hooks_path.write_text(
+        json.dumps(existing, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    _print("OK", f"Codex: hooks.json written to {hooks_path}")
+    return True
+
+
+def setup_claude_code_hooks() -> bool:
+    """Install the OpenSpace stop hook into Claude Code settings."""
+    claude_home = Path.home() / ".claude"
+    if not claude_home.exists():
+        return False
+
+    # 1. Copy stop_hook.py to ~/.claude/openspace/
+    hook_script_src = CODEX_HOOKS_DIR / "stop_hook.py"
+    if not hook_script_src.exists():
+        _print("!!", "Claude Code: stop_hook.py not found in package")
+        return False
+
+    hook_dest_dir = claude_home / "openspace"
+    hook_dest_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(hook_script_src, hook_dest_dir / "stop_hook.py")
+
+    # 2. Merge into ~/.claude/settings.json
+    settings_path = claude_home / "settings.json"
+    hook_command = f"python3 {hook_dest_dir / 'stop_hook.py'}"
+
+    existing: dict = {}
+    if settings_path.exists():
+        try:
+            existing = json.loads(settings_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    hooks = existing.setdefault("hooks", {})
+    stop_groups = hooks.setdefault("Stop", [])
+
+    # Check if OpenSpace hook already registered
+    already = False
+    for group in stop_groups:
+        for h in group.get("hooks", []):
+            if "openspace" in h.get("command", "").lower():
+                already = True
+                h["command"] = hook_command  # update path
+                break
+
+    if not already:
+        stop_groups.append({
+            "hooks": [{
+                "type": "command",
+                "command": hook_command,
+                "timeout": 15000,
+            }],
+        })
+
+    settings_path.write_text(
+        json.dumps(existing, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    _print("OK", f"Claude Code: Stop hook added to {settings_path}")
+    return True
 
 
 def setup_kiro(mcp_cmd: str) -> bool:
@@ -187,6 +323,10 @@ def main():
             registered.append(name)
         elif not _has_cmd(_TOOL_BINARIES.get(name, "")):
             not_found.append(name)
+
+    # Configure event hooks for auto skill evolution
+    setup_codex_hooks()
+    setup_claude_code_hooks()
 
     if not skip_skills:
         copy_host_skills()
