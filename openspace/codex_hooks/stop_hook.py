@@ -41,6 +41,10 @@ _MANUAL_REPORT_TOOLS = frozenset({
 _SKILL_PATH_RE = re.compile(r"skills/([a-zA-Z0-9_.-]+)/SKILL\.md")
 # Claude Code lists skills as "- skill-name: description..." in system-reminder
 _SKILL_LIST_RE = re.compile(r"^- ([a-zA-Z0-9_-]+):", re.MULTILINE)
+# skill-evolution skill outputs: [A] skill-name — reason
+_EVAL_RE = re.compile(
+    r"\[([ABCF])\]\s+([a-zA-Z0-9_-]+)\s*[—–\-]\s*(.+?)(?:\n|$)"
+)
 
 
 def _parse_payload() -> dict[str, Any]:
@@ -184,15 +188,56 @@ def _check_manual_reports(entries: list[dict], fmt: str = "") -> set[str]:
     return reported
 
 
-def _report_skill(skill_name: str, note: str = "auto-reported by stop hook") -> bool:
+def _extract_skill_evaluations(
+    entries: list[dict], fmt: str = "",
+) -> dict[str, tuple[str, str]]:
+    """Extract skill evaluations from assistant messages.
+
+    The skill-evolution skill outputs lines like:
+        [B] git-commit — missing amend example → evolving
+        [A] skillpull — accurate and complete, no changes needed
+
+    Returns {skill_name: (score, reason)}.
+    """
+    if not fmt:
+        fmt = _detect_format(entries)
+    evals: dict[str, tuple[str, str]] = {}
+    for entry in entries:
+        for text in _get_text_blocks(entry, fmt, "assistant"):
+            for m in _EVAL_RE.finditer(text):
+                score, name, reason = m.group(1), m.group(2), m.group(3).strip()
+                evals[name] = (score, reason)
+    return evals
+
+
+def _report_skill(skill_name: str, note: str = "") -> bool:
     """Call openspace-report CLI for a single skill."""
     cmd = shutil.which("openspace-report")
     if not cmd:
         return False
     try:
+        args = [cmd, skill_name]
+        if note:
+            args.extend(["--note", note])
         result = subprocess.run(
-            [cmd, skill_name, "--note", note],
-            capture_output=True, text=True, timeout=10,
+            args, capture_output=True, text=True, timeout=10,
+        )
+        return result.returncode == 0
+    except (subprocess.TimeoutExpired, OSError):
+        return False
+
+
+def _report_skill_failed(skill_name: str, note: str = "") -> bool:
+    """Call openspace-report CLI with --failed flag."""
+    cmd = shutil.which("openspace-report")
+    if not cmd:
+        return False
+    try:
+        args = [cmd, skill_name, "--failed"]
+        if note:
+            args.extend(["--note", note])
+        result = subprocess.run(
+            args, capture_output=True, text=True, timeout=10,
         )
         return result.returncode == 0
     except (subprocess.TimeoutExpired, OSError):
@@ -220,12 +265,21 @@ def main() -> None:
 
     referenced = _extract_assistant_skill_refs(entries, loaded, fmt)
     already_reported = _check_manual_reports(entries, fmt)
+    evals = _extract_skill_evaluations(entries, fmt)
 
     # Report skills that were referenced but not manually reported
     to_report = referenced - already_reported
     reported_count = 0
     for skill in sorted(to_report):
-        if _report_skill(skill):
+        score, reason = evals.get(skill, ("", ""))
+        if score == "F":
+            ok = _report_skill_failed(skill, note=reason)
+        elif score in ("B", "C"):
+            ok = _report_skill(skill, note=reason)
+        else:
+            # Score A or no evaluation — success, no note
+            ok = _report_skill(skill)
+        if ok:
             reported_count += 1
 
     # Also report loaded-but-not-referenced skills as "not applied"
