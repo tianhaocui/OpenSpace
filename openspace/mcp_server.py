@@ -549,9 +549,104 @@ async def _report_skill_usage_core(
             "effective_rate": updated.effective_rate,
         }
 
-    # Trigger metric check if enough data accumulated
+    # Fast-path: consecutive failures → immediate evolution via Trigger 1
+    # Bypasses the min_selections=5 gate so low-frequency skills can evolve.
     evolve_triggered = False
-    if updated and updated.total_selections >= 5:
+    if (not task_completed and skill_applied
+            and updated and updated.total_selections >= 3):
+        recent_analyses = store.load_analyses(skill_id=skill_id, limit=3)
+        consecutive_fails = (
+            len(recent_analyses) >= 3
+            and all(
+                not a.task_completed
+                and any(j.skill_applied for j in a.skill_judgments
+                        if j.skill_id == skill_id)
+                for a in recent_analyses[-3:]
+            )
+        )
+        if consecutive_fails:
+            from openspace.skill_engine.types import EvolutionSuggestion, EvolutionType
+            notes = [
+                j.note for a in recent_analyses[-3:]
+                for j in a.skill_judgments
+                if j.skill_id == skill_id and j.note
+            ]
+            analysis.evolution_suggestions = [
+                EvolutionSuggestion(
+                    evolution_type=EvolutionType.FIX,
+                    target_skill_ids=[skill_id],
+                    direction=(
+                        f"Skill failed 3 consecutive times. "
+                        f"Notes: {'; '.join(notes[-3:]) or 'no details'}"
+                    ),
+                ),
+            ]
+            try:
+                openspace = await _get_openspace()
+                evolver = openspace._skill_evolver
+                if evolver:
+                    evolver.schedule_background(
+                        evolver.process_analysis(analysis),
+                        label=f"early_fix_{skill_id}",
+                    )
+                    evolve_triggered = True
+                    logger.info(
+                        f"report_skill_usage: early evolution triggered for "
+                        f"'{skill_name}' (3 consecutive failures)"
+                    )
+            except Exception as e:
+                logger.debug(f"Early evolution (failures) scheduling failed: {e}")
+
+    # Fast-path 2: consecutive notes → skill has persistent quality issues
+    # Score B/C reports have task_completed=true but carry a note describing
+    # what was suboptimal.  3 consecutive noted reports = clear signal.
+    if (not evolve_triggered and skill_applied and note
+            and updated and updated.total_selections >= 3):
+        recent_analyses = store.load_analyses(skill_id=skill_id, limit=3)
+        consecutive_notes = (
+            len(recent_analyses) >= 3
+            and all(
+                any(j.note and j.skill_applied
+                    for j in a.skill_judgments if j.skill_id == skill_id)
+                for a in recent_analyses[-3:]
+            )
+        )
+        if consecutive_notes:
+            from openspace.skill_engine.types import EvolutionSuggestion, EvolutionType
+            notes = [
+                j.note for a in recent_analyses[-3:]
+                for j in a.skill_judgments
+                if j.skill_id == skill_id and j.note
+            ]
+            analysis.evolution_suggestions = [
+                EvolutionSuggestion(
+                    evolution_type=EvolutionType.FIX,
+                    target_skill_ids=[skill_id],
+                    direction=(
+                        f"Skill has persistent quality issues "
+                        f"(3 consecutive reports with notes). "
+                        f"Issues: {'; '.join(notes[-3:])}"
+                    ),
+                ),
+            ]
+            try:
+                openspace = await _get_openspace()
+                evolver = openspace._skill_evolver
+                if evolver:
+                    evolver.schedule_background(
+                        evolver.process_analysis(analysis),
+                        label=f"early_fix_notes_{skill_id}",
+                    )
+                    evolve_triggered = True
+                    logger.info(
+                        f"report_skill_usage: early evolution triggered for "
+                        f"'{skill_name}' (3 consecutive noted reports)"
+                    )
+            except Exception as e:
+                logger.debug(f"Early evolution (notes) scheduling failed: {e}")
+
+    # Trigger metric check if enough data accumulated (standard path)
+    if not evolve_triggered and updated and updated.total_selections >= 5:
         try:
             openspace = await _get_openspace()
             evolver = openspace._skill_evolver

@@ -5,6 +5,7 @@ import { overviewApi, type OverviewResponse } from '../api';
 import MetricCard from '../components/MetricCard';
 import EmptyState from '../components/EmptyState';
 import { formatDate, formatInstruction, formatPercent, truncate } from '../utils/format';
+import { getScoreReason } from '../utils/skillClasses';
 
 export default function DashboardPage() {
   const { t } = useTranslation();
@@ -90,7 +91,7 @@ export default function DashboardPage() {
                     </div>
                     <div className="text-right shrink-0">
                       <div className="text-2xl font-bold font-serif">{skill.score.toFixed(1)}</div>
-                      <div className="text-xs text-muted">{t('common.score')}</div>
+                      <div className="text-xs text-muted">{getScoreReason(skill, t)}</div>
                     </div>
                   </div>
                   <div className="mt-3 flex gap-3 text-xs text-muted">

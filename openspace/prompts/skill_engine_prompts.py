@@ -387,6 +387,19 @@ These are recent task executions where this skill was involved:
 4. Keep ``name`` and ``description`` in frontmatter; update ``description``
    only if the skill's purpose has changed.
 5. Be surgical — fix what's broken without unnecessary rewrites.
+6. **Quality check** — while fixing, also evaluate and improve:
+   - Is the ``description`` specific enough to trigger correctly? It should
+     list concrete trigger phrases and activation conditions, not just a
+     generic summary. Agents undertrigger by default — cast a wide net.
+   - Is SKILL.md under 100 lines? If it's a wall of text, extract detailed
+     content into ``references/`` or ``workflows/`` subdirectories and make
+     SKILL.md a navigation hub with an Always Read list + Common Tasks table.
+   - Are instructions in imperative mood ("Read the file") not passive
+     ("You should read the file")?
+   - Do instructions explain *why*, not just *what*? Edge-case reasoning
+     requires understanding the rationale behind each step.
+   - Are gotchas/pitfalls surfaced in the task path (SKILL.md Known Gotchas
+     section), not buried in reference files where the agent won't see them?
 
 ## Output format
 
@@ -527,6 +540,16 @@ These are recent task executions that informed this enhancement:
 6. The derived skill should be self-contained — a user should be able to
    follow it without referencing the parent.
 7. You may add, modify, or remove auxiliary files as needed.
+8. **Structure for scale** — if the derived skill is substantial (>100 lines):
+   - Use SKILL.md as a navigation hub (≤100 lines): Always Read files +
+     Common Tasks routing table + Known Gotchas summary.
+   - Put stable constraints in ``rules/``, step-by-step procedures in
+     ``workflows/``, background knowledge and pitfalls in ``references/``.
+   - Include an "Other / unlisted task" fallback in the routing table.
+9. **Description quality** — the ``description`` field determines whether the
+   agent activates this skill. Write it as a trigger condition, not a summary:
+   list concrete phrases users might say and when to activate. Agents
+   undertrigger by default, so cast a wide net of trigger phrases.
 
 ## Output format
 
@@ -663,14 +686,25 @@ These are task executions where the pattern was observed:
 2. Choose a concise, descriptive ``name`` (lowercase, hyphens for spaces).
    - Name MUST be ≤50 characters (e.g. ``safe-file-write``, ``ts-compile-check``).
    - Capture the core technique, not every detail.
-3. Write a brief ``description`` that captures the skill's purpose.
+3. Write a ``description`` as a **trigger condition**, not a summary — list
+   concrete phrases users might say and when to activate. Agents undertrigger
+   by default, so cast a wide net.
 4. Structure the body as clear, actionable instructions that an autonomous
-   agent can follow.  Include code examples where helpful.
+   agent can follow.  Use imperative mood ("Read the file", not "You should
+   read the file").  Explain *why* for non-obvious steps.  Include code
+   examples where helpful.
 5. Make the skill **generalizable** — abstract away task-specific details
-   while preserving the core technique.
-6. Use YAML frontmatter format (``---`` fences with ``name`` and
+   while preserving the core technique.  Replace project-specific names with
+   generic patterns.  Formula: specific finding → abstract pattern →
+   consequence of not following.
+6. **Recording threshold** — only capture if at least 2 of 3 conditions hold:
+   (a) Repeatable: will future tasks encounter this?
+   (b) High-cost: would not knowing this waste >30 minutes of debugging?
+   (c) Code-invisible: can't be inferred from reading the code alone?
+   If fewer than 2 hold, output {evolution_failed} instead.
+7. Use YAML frontmatter format (``---`` fences with ``name`` and
    ``description``).
-7. If the pattern benefits from auxiliary files (shell scripts, config
+8. If the pattern benefits from auxiliary files (shell scripts, config
    templates, etc.), include them.
 
 ## Output format

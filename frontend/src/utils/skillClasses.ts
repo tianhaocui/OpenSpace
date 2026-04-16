@@ -1,4 +1,11 @@
 import type { Skill } from '../api';
+import type { TFunction } from 'i18next';
+
+export function getScoreReason(skill: Skill, t: TFunction): string {
+  if (skill.total_selections === 0) return t('skills.noUsage');
+  if (skill.fallback_rate > 0.4) return t('skills.highFallback', { rate: (skill.fallback_rate * 100).toFixed(0) });
+  return t('skills.succeededCount', { completed: skill.total_completions, total: skill.total_selections });
+}
 
 export interface SkillClassSummary {
   class_id: string;
@@ -12,6 +19,7 @@ export interface SkillClassSummary {
   origins: string[];
   tags: string[];
   total_selections: number;
+  has_evolved: boolean;
 }
 
 function getUpdatedAtTimestamp(skill: Skill): number {
@@ -108,6 +116,7 @@ export function buildSkillClasses(skills: Skill[]): SkillClassSummary[] {
       origins: Array.from(originSet).sort(),
       tags: Array.from(tagSet).sort(),
       total_selections: totalSelections,
+      has_evolved: versions.some((version) => version.generation > 0),
     });
   }
 

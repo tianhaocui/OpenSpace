@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -m openspace.codex_hooks.stop_hook",
+            "statusMessage": "Reporting skill usage to OpenSpace..."
+          }
+        ]
+      }
+    ]
+  }
+}

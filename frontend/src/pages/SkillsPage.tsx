@@ -5,7 +5,7 @@ import { skillsApi, type Skill, type SkillStats } from '../api';
 import EmptyState from '../components/EmptyState';
 import MetricCard from '../components/MetricCard';
 import { formatDate, truncate } from '../utils/format';
-import { buildSkillClasses } from '../utils/skillClasses';
+import { buildSkillClasses, getScoreReason } from '../utils/skillClasses';
 
 export default function SkillsPage() {
   const { t } = useTranslation();
@@ -134,12 +134,17 @@ export default function SkillsPage() {
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0 space-y-1">
-                  <div className="font-bold truncate">{skillClass.representative.name}</div>
+                  <div className="flex items-center gap-2">
+                    <div className="font-bold truncate">{skillClass.representative.name}</div>
+                    {skillClass.has_evolved ? (
+                      <span className="tag px-2 py-0.5 text-[10px] bg-accent/20 text-accent">{t('skills.evolved')}</span>
+                    ) : null}
+                  </div>
                   <div className="text-xs text-muted truncate">{skillClass.representative.skill_id}</div>
                 </div>
                 <div className="text-right shrink-0">
                   <div className="text-3xl font-bold font-serif leading-none">{skillClass.best_score.toFixed(1)}</div>
-                  <div className="text-xs text-muted">{t('skills.bestScore')}</div>
+                  <div className="text-xs text-muted">{getScoreReason(skillClass.representative, t)}</div>
                 </div>
               </div>
 
