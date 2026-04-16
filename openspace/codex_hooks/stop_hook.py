@@ -275,19 +275,8 @@ def main() -> None:
         if ok:
             reported_count += 1
 
-    # Also report loaded-but-not-referenced skills as "not applied"
+    # Count loaded-but-not-referenced skills (not reported individually — too slow)
     not_applied = loaded - referenced - already_reported
-    for skill in sorted(not_applied):
-        cmd = shutil.which("openspace-report")
-        if cmd:
-            try:
-                subprocess.run(
-                    [cmd, skill, "--not-applied",
-                     "--note", "loaded but not referenced by assistant"],
-                    capture_output=True, text=True, timeout=10,
-                )
-            except (subprocess.TimeoutExpired, OSError):
-                pass
 
     msg = f"OpenSpace: reported {reported_count} skill(s)"
     if not_applied:
