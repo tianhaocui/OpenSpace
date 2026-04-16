@@ -130,6 +130,7 @@ class SkillRegistry:
     def __init__(self, skill_dirs: Optional[List[Path]] = None) -> None:
         self._skill_dirs: List[Path] = skill_dirs or []
         self._skills: Dict[str, SkillMeta] = {}     # skill_id -> SkillMeta
+        self._names_seen: Dict[str, str] = {}        # name -> first skill_id (dedup)
         self._content_cache: Dict[str, str] = {}     # skill_id -> raw SKILL.md content
         self._discovered = False
         self._ranker: Optional[SkillRanker] = None   # lazy-init on first use
@@ -176,6 +177,16 @@ class SkillRegistry:
                     if sid in self._skills:
                         logger.debug(f"Skill '{sid}' already discovered, skipping {skill_file}")
                         continue
+
+                    # Name-based dedup: prefer the first-discovered version
+                    # (shared-hub is scanned first by auto_detect_skill_dirs)
+                    if meta.name in self._names_seen:
+                        logger.debug(
+                            f"Skill name '{meta.name}' already discovered "
+                            f"(id={self._names_seen[meta.name]}), skipping {skill_file}"
+                        )
+                        continue
+                    self._names_seen[meta.name] = sid
 
                     self._skills[sid] = meta
                     self._content_cache[sid] = content

@@ -303,6 +303,37 @@ def write_project_mcp_json(mcp_cmd: str) -> bool:
     return True
 
 
+def dedup_skill_dirs() -> int:
+    """Replace duplicate skills in agent dirs with symlinks to ~/.agents/skills/.
+
+    Ensures ~/.agents/skills/ is the single source of truth.  Skills that
+    only exist in an agent dir are moved to agents first, then symlinked.
+    """
+    agents_dir = Path.home() / ".agents" / "skills"
+    if not agents_dir.exists():
+        return 0
+
+    agent_dirs = [
+        Path.home() / ".codex" / "skills",
+        Path.home() / ".claude" / "skills",
+        Path.home() / ".kiro" / "skills",
+    ]
+    replaced = 0
+    for agent_dir in agent_dirs:
+        if not agent_dir.exists():
+            continue
+        for skill_dir in sorted(agent_dir.iterdir()):
+            if not skill_dir.is_dir() or skill_dir.name.startswith(".") or skill_dir.is_symlink():
+                continue
+            source = agents_dir / skill_dir.name
+            if not source.exists():
+                shutil.copytree(skill_dir, source)
+            shutil.rmtree(skill_dir)
+            skill_dir.symlink_to(source)
+            replaced += 1
+    return replaced
+
+
 def main():
     skip_skills = "--skip-skills" in sys.argv
     mcp_cmd = _resolve_mcp_command()
@@ -332,6 +363,11 @@ def main():
         copy_host_skills()
 
     write_project_mcp_json(mcp_cmd)
+
+    # Deduplicate skill directories — ensure ~/.agents/skills/ is source of truth
+    deduped = dedup_skill_dirs()
+    if deduped:
+        _print("OK", f"Deduplicated {deduped} skill(s) → symlinks to ~/.agents/skills/")
 
     print()
     if registered:
