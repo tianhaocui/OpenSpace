@@ -594,8 +594,8 @@ async def _report_skill_usage_core(
                         f"report_skill_usage: early evolution triggered for "
                         f"'{skill_name}' (3 consecutive failures)"
                     )
-            except Exception:
-                pass  # best-effort
+            except Exception as e:
+                logger.debug(f"Early evolution (failures) scheduling failed: {e}")
 
     # Fast-path 2: consecutive notes → skill has persistent quality issues
     # Score B/C reports have task_completed=true but carry a note describing
@@ -642,8 +642,8 @@ async def _report_skill_usage_core(
                         f"report_skill_usage: early evolution triggered for "
                         f"'{skill_name}' (3 consecutive noted reports)"
                     )
-            except Exception:
-                pass  # best-effort
+            except Exception as e:
+                logger.debug(f"Early evolution (notes) scheduling failed: {e}")
 
     # Trigger metric check if enough data accumulated (standard path)
     if not evolve_triggered and updated and updated.total_selections >= 5:

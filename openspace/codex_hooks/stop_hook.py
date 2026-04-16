@@ -139,7 +139,7 @@ def _extract_assistant_skill_refs(
         for text in _get_text_blocks(entry, fmt, "assistant"):
             text_lower = text.lower()
             for skill in loaded:
-                if skill.lower() in text_lower:
+                if re.search(r'\b' + re.escape(skill.lower()) + r'\b', text_lower):
                     referenced.add(skill)
     return referenced
 
@@ -168,6 +168,10 @@ def _check_manual_reports(entries: list[dict], fmt: str = "") -> set[str]:
             skill_name = args.get("skill_name", "") if isinstance(args, dict) else ""
             if skill_name:
                 reported.add(skill_name)
+            # fix_skill uses skill_dir, not skill_name — extract from path
+            skill_dir = args.get("skill_dir", "") if isinstance(args, dict) else ""
+            if skill_dir:
+                reported.add(Path(skill_dir).name)
 
         elif fmt == "claude":
             if entry.get("type") != "assistant":
@@ -184,6 +188,10 @@ def _check_manual_reports(entries: list[dict], fmt: str = "") -> set[str]:
                 skill_name = inp.get("skill_name", "") if isinstance(inp, dict) else ""
                 if skill_name:
                     reported.add(skill_name)
+                # fix_skill uses skill_dir, not skill_name
+                skill_dir = inp.get("skill_dir", "") if isinstance(inp, dict) else ""
+                if skill_dir:
+                    reported.add(Path(skill_dir).name)
 
     return reported
 
@@ -210,30 +218,15 @@ def _extract_skill_evaluations(
     return evals
 
 
-def _report_skill(skill_name: str, note: str = "") -> bool:
+def _report_skill(skill_name: str, note: str = "", failed: bool = False) -> bool:
     """Call openspace-report CLI for a single skill."""
     cmd = shutil.which("openspace-report")
     if not cmd:
         return False
     try:
         args = [cmd, skill_name]
-        if note:
-            args.extend(["--note", note])
-        result = subprocess.run(
-            args, capture_output=True, text=True, timeout=10,
-        )
-        return result.returncode == 0
-    except (subprocess.TimeoutExpired, OSError):
-        return False
-
-
-def _report_skill_failed(skill_name: str, note: str = "") -> bool:
-    """Call openspace-report CLI with --failed flag."""
-    cmd = shutil.which("openspace-report")
-    if not cmd:
-        return False
-    try:
-        args = [cmd, skill_name, "--failed"]
+        if failed:
+            args.append("--failed")
         if note:
             args.extend(["--note", note])
         result = subprocess.run(
@@ -273,7 +266,7 @@ def main() -> None:
     for skill in sorted(to_report):
         score, reason = evals.get(skill, ("", ""))
         if score == "F":
-            ok = _report_skill_failed(skill, note=reason)
+            ok = _report_skill(skill, note=reason, failed=True)
         elif score in ("B", "C"):
             ok = _report_skill(skill, note=reason)
         else:

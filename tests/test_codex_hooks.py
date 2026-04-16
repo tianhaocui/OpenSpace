@@ -226,7 +226,7 @@ class TestCheckManualReportsCodex:
         entries = [
             _codex_function_call(
                 "fix_skill",
-                {"skill_name": "lark-docs", "direction": "update API endpoint"},
+                {"skill_dir": "/root/.agents/skills/lark-docs", "direction": "update API endpoint"},
             ),
         ]
         result = _check_manual_reports(entries)
@@ -255,7 +255,7 @@ class TestCheckManualReportsClaude:
         entries = [
             _claude_tool_use(
                 "fix_skill",
-                {"skill_name": "lark-docs", "direction": "update endpoint"},
+                {"skill_dir": "/root/.claude/skills/lark-docs", "direction": "update endpoint"},
             ),
         ]
         result = _check_manual_reports(entries, fmt="claude")
