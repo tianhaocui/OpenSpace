@@ -192,7 +192,7 @@ def configure_llm() -> dict[str, str]:
 
     env["OPENSPACE_MODEL"] = model
 
-    # API key
+    # API key — always use ${VAR} reference in config, ensure key is in shell env
     if key == "custom":
         api_key = input("  API key: ").strip()
         if api_key:
@@ -205,22 +205,46 @@ def configure_llm() -> dict[str, str]:
         existing_key = os.environ.get(env_key_name, "").strip()
         if existing_key:
             masked = existing_key[:8] + "..." + existing_key[-4:] if len(existing_key) > 12 else "***"
-            use_existing = input(f"  {env_key_name} found ({masked}). Use it? [Y/n]: ").strip().lower()
-            if use_existing not in ("n", "no"):
-                env[env_key_name] = existing_key
-                _print("OK", f"LLM: {model} (using existing {env_key_name})")
-                print()
-                return env
-
-        api_key = input(f"  {env_key_name}: ").strip()
-        if api_key:
-            env[env_key_name] = api_key
-            _print("OK", f"LLM: {model}")
+            _print("OK", f"LLM: {model} ({env_key_name} detected: {masked})")
         else:
-            _print("~", f"LLM: {model} (set {env_key_name} before running)")
+            api_key = input(f"  {env_key_name}: ").strip()
+            if api_key:
+                _ensure_shell_export(env_key_name, api_key)
+                _print("OK", f"LLM: {model}")
+            else:
+                _print("~", f"LLM: {model} (set {env_key_name} before running)")
+
+        # Config always references the env var, never stores the actual key
+        env[env_key_name] = f"${{{env_key_name}}}"
 
     print()
     return env
+
+
+def _ensure_shell_export(var_name: str, value: str) -> None:
+    """Add export to user's shell rc file if not already present."""
+    shell = os.environ.get("SHELL", "/bin/bash")
+    if "zsh" in shell:
+        rc_file = Path.home() / ".zshrc"
+    else:
+        rc_file = Path.home() / ".bashrc"
+
+    export_line = f'export {var_name}="{value}"'
+
+    # Check if already exported
+    if rc_file.exists():
+        content = rc_file.read_text(encoding="utf-8")
+        if f"export {var_name}=" in content:
+            _print("~", f"{var_name} already in {rc_file.name}")
+            return
+
+    # Append export
+    with open(rc_file, "a", encoding="utf-8") as f:
+        f.write(f"\n# Added by openspace-setup\n{export_line}\n")
+
+    # Also set in current process so MCP registration picks it up
+    os.environ[var_name] = value
+    _print("OK", f"{var_name} added to ~/{rc_file.name} (run 'source ~/{rc_file.name}' or restart terminal)")
 
 
 def write_project_mcp_json(mcp_cmd: str) -> bool:
