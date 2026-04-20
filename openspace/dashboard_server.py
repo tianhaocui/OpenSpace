@@ -161,6 +161,13 @@ def create_app() -> Flask:
             abort(404, description=f"Unknown skill_id: {skill_id}")
         return jsonify(_build_lineage_payload(skill_id, store))
 
+    @app.route(f"{API_PREFIX}/skills/<skill_id>/dependency-graph", methods=["GET"])
+    def skill_dependency_graph(skill_id: str) -> Any:
+        store = _get_store()
+        if not store.load_record(skill_id):
+            abort(404, description=f"Unknown skill_id: {skill_id}")
+        return jsonify(_build_dependency_graph(skill_id, store))
+
     @app.route(f"{API_PREFIX}/skills/<skill_id>/source", methods=["GET"])
     def skill_source(skill_id: str) -> Any:
         store = _get_store()
@@ -203,6 +210,9 @@ def create_app() -> Flask:
         timeline = _build_timeline(actions, enriched_trajectory)
         artifacts = _build_workflow_artifacts(workflow_dir, workflow_id, metadata)
 
+        # Skill attribution: join recording data with DB analysis
+        skill_attribution = _build_skill_attribution(metadata, enriched_trajectory)
+
         return jsonify(
             {
                 **_build_workflow_summary(workflow_dir),
@@ -215,6 +225,7 @@ def create_app() -> Flask:
                 "agent_statistics": action_stats,
                 "timeline": timeline,
                 "artifacts": artifacts,
+                "skill_attribution": skill_attribution,
             }
         )
 
@@ -425,6 +436,165 @@ def _build_lineage_payload(skill_id: str, store: SkillStore) -> Dict[str, Any]:
     }
 
 
+def _build_skill_attribution(
+    metadata: Dict[str, Any],
+    trajectory: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Build skill attribution data for workflow detail."""
+    result: Dict[str, Any] = {
+        "skill_judgments": [],
+        "phase_boundary_step": None,
+        "execution_analysis": None,
+    }
+
+    # Phase boundary: find the first step where skill_guided transitions to False
+    prev_guided = True
+    for step in trajectory:
+        guided = step.get("skill_guided", False)
+        if prev_guided and not guided and step.get("step", 0) > 0:
+            result["phase_boundary_step"] = step.get("step")
+            break
+        prev_guided = guided
+
+    # Load execution analysis from DB if task_id is available
+    task_id = metadata.get("task_id")
+    if task_id:
+        try:
+            store = _get_store()
+            analysis = store.load_analyses_for_task(task_id)
+            if analysis:
+                result["skill_judgments"] = [
+                    {
+                        "skill_id": j.skill_id,
+                        "skill_applied": j.skill_applied,
+                        "note": j.note,
+                    }
+                    for j in analysis.skill_judgments
+                ]
+                result["execution_analysis"] = {
+                    "task_completed": analysis.task_completed,
+                    "execution_note": analysis.execution_note,
+                    "tool_issues": analysis.tool_issues,
+                }
+        except Exception:
+            pass
+
+    return result
+
+
+def _build_dependency_graph(skill_id: str, store: SkillStore) -> Dict[str, Any]:
+    """Build a dependency graph for a skill: lineage + tool deps + co-selection."""
+    records = store.load_all(active_only=False)
+    if skill_id not in records:
+        return {"nodes": [], "edges": [], "shared_tools": {}}
+
+    target = records[skill_id]
+    related_ids: set[str] = {skill_id}
+    nodes: List[Dict[str, Any]] = []
+    edges: List[Dict[str, Any]] = []
+
+    # 1. Lineage edges (parent/child)
+    children_by_parent: Dict[str, set[str]] = {}
+    for item in records.values():
+        for pid in item.lineage.parent_skill_ids:
+            children_by_parent.setdefault(pid, set()).add(item.skill_id)
+
+    frontier = [skill_id]
+    while frontier:
+        current = frontier.pop()
+        rec = records.get(current)
+        if not rec:
+            continue
+        for pid in rec.lineage.parent_skill_ids:
+            if pid not in related_ids:
+                related_ids.add(pid)
+                frontier.append(pid)
+        for cid in children_by_parent.get(current, set()):
+            if cid not in related_ids:
+                related_ids.add(cid)
+                frontier.append(cid)
+
+    for rid in related_ids:
+        rec = records.get(rid)
+        if not rec:
+            continue
+        for pid in rec.lineage.parent_skill_ids:
+            if pid in related_ids:
+                edges.append({"source": pid, "target": rid, "type": "lineage", "weight": 1, "label": rec.lineage.origin.value})
+
+    # 2. Tool dependency edges (skills sharing the same tools)
+    shared_tools: Dict[str, List[str]] = {}
+    try:
+        with store._reader() as conn:
+            rows = conn.execute(
+                "SELECT skill_id, tool_key FROM skill_tool_deps "
+                "WHERE skill_id IN ({})".format(",".join("?" * len(related_ids))),
+                list(related_ids),
+            ).fetchall()
+            tool_to_skills: Dict[str, List[str]] = {}
+            for row in rows:
+                tool_to_skills.setdefault(row["tool_key"], []).append(row["skill_id"])
+            for tool_key, sids in tool_to_skills.items():
+                if len(sids) > 1:
+                    shared_tools[tool_key] = sids
+                    for i, a in enumerate(sids):
+                        for b in sids[i + 1:]:
+                            edges.append({"source": a, "target": b, "type": "tool_dep", "weight": 1, "label": tool_key})
+    except Exception:
+        pass
+
+    # 3. Co-selection edges (skills frequently selected together)
+    co_counts: Dict[tuple[str, str], int] = {}
+    for wdir in _discover_workflow_dirs():
+        try:
+            meta_path = wdir / "metadata.json"
+            if not meta_path.exists():
+                continue
+            import json as _json
+            meta = _json.loads(meta_path.read_text(encoding="utf-8"))
+            selected = (meta.get("skill_selection") or {}).get("selected", [])
+            if skill_id not in selected:
+                continue
+            for sid in selected:
+                if sid != skill_id and sid in records:
+                    pair = tuple(sorted([skill_id, sid]))
+                    co_counts[pair] = co_counts.get(pair, 0) + 1
+                    related_ids.add(sid)
+        except Exception:
+            continue
+
+    for (a, b), count in co_counts.items():
+        if count >= 1:
+            edges.append({"source": a, "target": b, "type": "co_selection", "weight": count, "label": f"{count}x"})
+
+    # Build nodes
+    for rid in sorted(related_ids):
+        rec = records.get(rid)
+        if not rec:
+            continue
+        tool_count = 0
+        try:
+            with store._reader() as conn:
+                row = conn.execute(
+                    "SELECT COUNT(*) as cnt FROM skill_tool_deps WHERE skill_id=?",
+                    (rid,),
+                ).fetchone()
+                tool_count = row["cnt"] if row else 0
+        except Exception:
+            pass
+        nodes.append({
+            "skill_id": rec.skill_id,
+            "name": rec.name,
+            "description": rec.description[:100] if rec.description else "",
+            "score": _skill_score(rec),
+            "is_active": rec.is_active,
+            "category": rec.category or "",
+            "tool_count": tool_count,
+        })
+
+    return {"nodes": nodes, "edges": edges, "shared_tools": shared_tools}
+
+
 def _workflow_id(workflow_dir: Path) -> str:
     """Stable short ID for a workflow directory, unique across roots.
 
@@ -570,17 +740,19 @@ def _build_timeline(actions: List[Dict[str, Any]], trajectory: List[Dict[str, An
             }
         )
     for step in trajectory:
-        events.append(
-            {
-                "timestamp": step.get("timestamp", ""),
-                "type": "tool_execution",
-                "step": step.get("step"),
-                "label": step.get("tool", "tool_execution"),
-                "backend": step.get("backend", ""),
-                "status": (step.get("result") or {}).get("status", "unknown"),
-                "details": step,
-            }
-        )
+        event = {
+            "timestamp": step.get("timestamp", ""),
+            "type": "tool_execution",
+            "step": step.get("step"),
+            "label": step.get("tool", "tool_execution"),
+            "backend": step.get("backend", ""),
+            "status": (step.get("result") or {}).get("status", "unknown"),
+            "details": step,
+        }
+        if step.get("skill_ids"):
+            event["skill_ids"] = step["skill_ids"]
+            event["skill_guided"] = step.get("skill_guided", False)
+        events.append(event)
     events.sort(key=lambda item: (item.get("timestamp", ""), item.get("step") or 0))
     return events
 
