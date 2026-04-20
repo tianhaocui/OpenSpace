@@ -11,6 +11,7 @@ Usage:
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -19,6 +20,14 @@ from pathlib import Path
 from openspace.host_detection.skill_dirs import _SHARED_HUB as SHARED_SKILLS_HUB
 
 HOST_SKILLS_DIR = Path(__file__).resolve().parent / "host_skills"
+
+_LLM_PROVIDERS = [
+    ("anthropic", "Anthropic (Claude Sonnet 4)", "ANTHROPIC_API_KEY", "anthropic/claude-sonnet-4-20250514"),
+    ("anthropic-opus", "Anthropic (Claude Opus 4.6)", "ANTHROPIC_API_KEY", "anthropic/claude-opus-4-6-20250610"),
+    ("openai", "OpenAI (GPT-4o)", "OPENAI_API_KEY", "openai/gpt-4o"),
+    ("deepseek", "DeepSeek", "DEEPSEEK_API_KEY", "deepseek/deepseek-chat"),
+    ("custom", "Custom endpoint", None, None),
+]
 
 MCP_ENV = {
     "OPENSPACE_CLOUD_ENABLED": "false",
@@ -152,6 +161,92 @@ def copy_host_skills() -> int:
     return copied
 
 
+def configure_llm() -> dict[str, str]:
+    """Interactive LLM provider selection. Returns env vars to merge into MCP_ENV."""
+    env: dict[str, str] = {}
+
+    print("  LLM Configuration")
+    print("  " + "\u2500" * 17)
+    for i, (_key, label, _env_name, model) in enumerate(_LLM_PROVIDERS, 1):
+        hint = f" ({model})" if model else ""
+        print(f"    {i}. {label}{hint}")
+
+    print()
+    choice = input("  Choose provider [1]: ").strip() or "1"
+    try:
+        idx = max(0, min(int(choice) - 1, len(_LLM_PROVIDERS) - 1))
+    except ValueError:
+        idx = 0
+
+    key, _label, env_key_name, default_model = _LLM_PROVIDERS[idx]
+
+    # Model
+    if default_model:
+        model_input = input(f"  Model [{default_model}]: ").strip()
+        model = model_input or default_model
+    else:
+        model = input("  Model (e.g. anthropic/claude-sonnet-4-20250514): ").strip()
+        if not model:
+            _print("!!", "No model specified, skipping LLM config")
+            return env
+
+    env["OPENSPACE_MODEL"] = model
+
+    # API key — always use ${VAR} reference in config, ensure key is in shell env
+    if key == "custom":
+        api_key = input("  API key: ").strip()
+        if api_key:
+            env["OPENSPACE_LLM_API_KEY"] = api_key
+        api_base = input("  API base URL: ").strip()
+        if api_base:
+            env["OPENSPACE_LLM_API_BASE"] = api_base
+        _print("OK", f"LLM: {model}")
+    else:
+        existing_key = os.environ.get(env_key_name, "").strip()
+        if existing_key:
+            masked = existing_key[:8] + "..." + existing_key[-4:] if len(existing_key) > 12 else "***"
+            _print("OK", f"LLM: {model} ({env_key_name} detected: {masked})")
+        else:
+            api_key = input(f"  {env_key_name}: ").strip()
+            if api_key:
+                _ensure_shell_export(env_key_name, api_key)
+                _print("OK", f"LLM: {model}")
+            else:
+                _print("~", f"LLM: {model} (set {env_key_name} before running)")
+
+        # Config always references the env var, never stores the actual key
+        env[env_key_name] = f"${{{env_key_name}}}"
+
+    print()
+    return env
+
+
+def _ensure_shell_export(var_name: str, value: str) -> None:
+    """Add export to user's shell rc file if not already present."""
+    shell = os.environ.get("SHELL", "/bin/bash")
+    if "zsh" in shell:
+        rc_file = Path.home() / ".zshrc"
+    else:
+        rc_file = Path.home() / ".bashrc"
+
+    export_line = f'export {var_name}="{value}"'
+
+    # Check if already exported
+    if rc_file.exists():
+        content = rc_file.read_text(encoding="utf-8")
+        if f"export {var_name}=" in content:
+            _print("~", f"{var_name} already in {rc_file.name}")
+            return
+
+    # Append export
+    with open(rc_file, "a", encoding="utf-8") as f:
+        f.write(f"\n# Added by openspace-setup\n{export_line}\n")
+
+    # Also set in current process so MCP registration picks it up
+    os.environ[var_name] = value
+    _print("OK", f"{var_name} added to ~/{rc_file.name} (run 'source ~/{rc_file.name}' or restart terminal)")
+
+
 def write_project_mcp_json(mcp_cmd: str) -> bool:
     mcp_json_path = Path.cwd() / ".mcp.json"
     if mcp_json_path.exists():
@@ -169,10 +264,17 @@ def write_project_mcp_json(mcp_cmd: str) -> bool:
 
 def main():
     skip_skills = "--skip-skills" in sys.argv
+    non_interactive = "--non-interactive" in sys.argv or "--yes" in sys.argv
     mcp_cmd = _resolve_mcp_command()
 
     print("\nOpenSpace Setup\n")
 
+    # Step 1: LLM configuration
+    if not non_interactive:
+        llm_env = configure_llm()
+        MCP_ENV.update(llm_env)
+
+    # Step 2: Register with host agents
     registered = []
     not_found = []
 
@@ -188,14 +290,18 @@ def main():
         elif not _has_cmd(_TOOL_BINARIES.get(name, "")):
             not_found.append(name)
 
+    # Step 3: Copy skills
     if not skip_skills:
         copy_host_skills()
 
+    # Step 4: Write .mcp.json
     write_project_mcp_json(mcp_cmd)
 
     print()
     if registered:
         print(f"  Ready! OpenSpace registered for: {', '.join(registered)}")
+    if MCP_ENV.get("OPENSPACE_MODEL"):
+        print(f"  Model: {MCP_ENV['OPENSPACE_MODEL']}")
     if not_found:
         print(f"  Not found: {', '.join(not_found)} (install them to enable)")
     print()

@@ -247,20 +247,19 @@ class SkillEvolver:
             _src_tok = None
 
         evo_type = ctx.suggestion.evolution_type
+        new_record: Optional[SkillRecord] = None
         try:
             if evo_type == EvolutionType.FIX:
-                return await self._evolve_fix(ctx)
+                new_record = await self._evolve_fix(ctx)
             elif evo_type == EvolutionType.DERIVED:
-                return await self._evolve_derived(ctx)
+                new_record = await self._evolve_derived(ctx)
             elif evo_type == EvolutionType.CAPTURED:
-                return await self._evolve_captured(ctx)
+                new_record = await self._evolve_captured(ctx)
             else:
                 logger.warning(f"Unknown evolution type: {evo_type}")
-                return None
         except Exception as e:
             targets = "+".join(ctx.suggestion.target_skill_ids) or "(new)"
             logger.error(f"Evolution failed [{evo_type.value}] target={targets}: {e}")
-            return None
         finally:
             if _src_tok is not None:
                 reset_call_source(_src_tok)
@@ -304,8 +303,7 @@ class SkillEvolver:
             logger.warning(f"Auto-push skipped for '{record.name}': {e}")
 
     async def _notify_evolution(self, record: SkillRecord) -> None:
-        """Send webhook notification after skill evolution (best-effort)."""
-        import urllib.request
+        """Send webhook notification after skill evolution (best-effort, non-blocking)."""
         import json as _json
 
         webhook_url = os.environ.get("OPENSPACE_NOTIFY_WEBHOOK", "").strip()
@@ -327,12 +325,17 @@ class SkillEvolver:
                 payload = {"text": text}
 
             data = _json.dumps(payload, ensure_ascii=False).encode("utf-8")
-            req = urllib.request.Request(
-                webhook_url, data=data,
-                headers={"Content-Type": "application/json"},
-                method="POST",
-            )
-            urllib.request.urlopen(req, timeout=10)
+
+            def _send():
+                import urllib.request
+                req = urllib.request.Request(
+                    webhook_url, data=data,
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                urllib.request.urlopen(req, timeout=10)
+
+            await asyncio.to_thread(_send)
             logger.info(f"Evolution notification sent for '{record.name}'")
         except Exception as e:
             logger.warning(f"Evolution notification failed for '{record.name}': {e}")

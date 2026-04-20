@@ -187,7 +187,31 @@ async def _get_openspace():
                 await _auto_register_skill_dirs(dirs)
                 logger.info("Auto-registered host skill dirs from OPENSPACE_HOST_SKILL_DIRS: %s", dirs)
 
+        # Auto-pull latest skills from Git on startup (best-effort, non-blocking)
+        if os.environ.get("OPENSPACE_AUTO_PULL", "true").lower() in ("true", "1", "yes"):
+            asyncio.create_task(_auto_pull_skills())
+
         return _openspace_instance
+
+
+async def _auto_pull_skills() -> None:
+    """Pull latest skills from Git registry on startup (best-effort)."""
+    try:
+        from openspace.cloud.cli.skillpull_sync import pull_skills, find_skillpull
+        find_skillpull()  # check if skillpull is installed
+        result = await pull_skills(force=False)
+        if result.get("success"):
+            count = result.get("count", 0)
+            if count:
+                logger.info(f"Auto-pull: synced {count} skill(s) from Git")
+            else:
+                logger.debug("Auto-pull: no new skills")
+        else:
+            logger.debug(f"Auto-pull: {result.get('error', 'skipped')}")
+    except FileNotFoundError:
+        logger.debug("Auto-pull: skillpull not installed, skipping")
+    except Exception as e:
+        logger.debug(f"Auto-pull: {e}")
 
 
 def _get_store():
